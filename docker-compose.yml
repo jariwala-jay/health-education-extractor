@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7
+    container_name: health_extractor_mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+      MONGO_INITDB_DATABASE: health_education_extractor
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - health_extractor_network
+
+  backend:
+    build: .
+    container_name: health_extractor_backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - MONGODB_URL=mongodb://admin:password@mongodb:27017/health_education_extractor?authSource=admin
+      - MONGODB_DB_NAME=health_education_extractor
+      - DEBUG=True
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./data:/app/data
+      - ./backend:/app
+    depends_on:
+      - mongodb
+    networks:
+      - health_extractor_network
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+volumes:
+  mongodb_data:
+
+networks:
+  health_extractor_network:
+    driver: bridge 
