@@ -59,6 +59,14 @@ data/exports/*
 data/processed/*
 !data/processed/.gitkeep
 
+# Backend data files
+backend/data/uploads/*
+!backend/data/uploads/.gitkeep
+backend/data/exports/*
+!backend/data/exports/.gitkeep
+backend/data/processed/*
+!backend/data/processed/.gitkeep
+
 # Node.js (for frontend)
 node_modules/
 .next/
