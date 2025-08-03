@@ -11,6 +11,15 @@ class Settings(BaseSettings):
     mongodb_url: str = "mongodb://localhost:27017"
     mongodb_db_name: str = "health_education_extractor"
     
+    # App Database Configuration (for published articles)
+    # Uses same connection as main database but different database name
+    app_mongodb_db_name: str = "test"
+    
+    @property
+    def app_mongodb_url(self) -> str:
+        """App database uses the same connection string as main database."""
+        return self.mongodb_url
+    
     # Google AI (Gemini) API
     gemini_api_key: str
     
