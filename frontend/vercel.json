@@ -2,44 +2,24 @@
   "buildCommand": "npm run build",
   "outputDirectory": ".next",
   "framework": "nextjs",
-  "installCommand": "npm ci",
-  "devCommand": "npm run dev",
+  "installCommand": "npm install",
   "env": {
-    "NEXT_PUBLIC_API_URL": "https://your-app-engine-url.appspot.com"
-  },
-  "build": {
-    "env": {
-      "NEXT_PUBLIC_API_URL": "https://your-app-engine-url.appspot.com"
-    }
-  },
-  "functions": {
-    "app/**": {
-      "maxDuration": 30
-    }
+    "NEXT_PUBLIC_API_URL": "@next_public_api_url"
   },
   "headers": [
     {
       "source": "/api/(.*)",
       "headers": [
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "*"
-        },
-        {
-          "key": "Access-Control-Allow-Methods",
-          "value": "GET, POST, PUT, DELETE, OPTIONS"
-        },
-        {
-          "key": "Access-Control-Allow-Headers",
-          "value": "X-Requested-With, Content-Type, Authorization"
-        }
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET, POST, PUT, DELETE, OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type, Authorization" }
       ]
     }
   ],
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://your-app-engine-url.appspot.com/api/:path*"
+      "destination": "$NEXT_PUBLIC_API_URL/api/:path*"
     }
   ]
 } 
