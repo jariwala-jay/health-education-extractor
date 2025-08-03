@@ -43,13 +43,13 @@ class Settings(BaseSettings):
     port: int = 8000
     
     # Authentication Settings
-    secret_key: str = "your-secret-key-change-this-in-production"
+    secret_key: str  # Required - must be set via environment variable
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24  # 24 hours
     
     # Admin User Configuration
     admin_username: str = "admin"
-    admin_password: str = "admin123"  # Change this in production!
+    admin_password: str  # Required - must be set via environment variable
     
     class Config:
         env_file = ".env"
