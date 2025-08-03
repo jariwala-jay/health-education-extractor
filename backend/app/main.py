@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 from app.config import settings
 from app.api.v1 import pdf_processing, health_articles
 from app.core.database import init_database, close_database
+from app.services.app_database_uploader import app_uploader
 
 
 # Configure logging
@@ -22,10 +23,12 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting Health Education Extractor API...")
     await init_database()
+    await app_uploader.init_app_database()
     yield
     # Shutdown
     logger.info("Shutting down Health Education Extractor API...")
     await close_database()
+    await app_uploader.close_app_database()
 
 
 # Create FastAPI app
