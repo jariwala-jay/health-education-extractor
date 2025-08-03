@@ -1,23 +1,27 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { ArrowDownTrayIcon } from '@heroicons/react/24/outline';
-import { exportArticlesJSON, getExportSummary, downloadBlob, listPDFs, type ExportSummary, type PDFDocument } from '@/lib/api';
-import { HEALTH_CATEGORIES } from '@/lib/constants';
-import toast from 'react-hot-toast';
+import { useState, useEffect } from "react";
+import { ArrowDownTrayIcon } from "@heroicons/react/24/outline";
+import {
+  uploadArticlesToAppDatabase,
+  getExportSummary,
+  listPDFs,
+  type ExportSummary,
+  type PDFDocument,
+  type UploadResult,
+} from "@/lib/api";
+import { HEALTH_CATEGORIES } from "@/lib/constants";
+import toast from "react-hot-toast";
 
 export default function ExportPage() {
   const [loading, setLoading] = useState(false);
   const [summary, setSummary] = useState<ExportSummary | null>(null);
   const [pdfs, setPdfs] = useState<PDFDocument[]>([]);
-  
-  // Export filters
+  const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
+
+  // Upload filters
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [selectedStatus, setSelectedStatus] = useState('approved');
-  const [approvedOnly, setApprovedOnly] = useState(true);
-  const [selectedPdfId, setSelectedPdfId] = useState<string>('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [selectedPdfId, setSelectedPdfId] = useState<string>("");
 
   useEffect(() => {
     loadSummary();
@@ -29,8 +33,8 @@ export default function ExportPage() {
       const pdfData = await listPDFs(1, 100); // Get up to 100 PDFs
       setPdfs(pdfData.documents);
     } catch (error) {
-      console.error('Error loading PDFs:', error);
-      toast.error('Failed to load PDFs');
+      console.error("Error loading PDFs:", error);
+      toast.error("Failed to load PDFs");
     }
   };
 
@@ -39,48 +43,51 @@ export default function ExportPage() {
       const summaryData = await getExportSummary(selectedPdfId || undefined);
       setSummary(summaryData);
     } catch (error) {
-      console.error('Error loading summary:', error);
-      toast.error('Failed to load export summary');
+      console.error("Error loading summary:", error);
+      toast.error("Failed to load export summary");
     }
   };
 
-  const handleExport = async () => {
+  const handleUpload = async () => {
     try {
       setLoading(true);
-      
+      setUploadResult(null);
+
       // Use the first selected category or undefined if none selected
-      const categoryFilter = selectedCategories.length > 0 ? selectedCategories[0] : undefined;
-      const statusFilter = selectedStatus || undefined;
+      const categoryFilter =
+        selectedCategories.length > 0 ? selectedCategories[0] : undefined;
       const pdfFilter = selectedPdfId || undefined;
 
-      const blob = await exportArticlesJSON(
+      const result = await uploadArticlesToAppDatabase(
         categoryFilter,
-        statusFilter,
         undefined, // tags - not implemented in UI yet
-        approvedOnly,
         pdfFilter
       );
-      
-      // Generate filename with timestamp and PDF info
-      const timestamp = new Date().toISOString().split('T')[0];
-      const pdfSuffix = selectedPdfId ? `_pdf_${selectedPdfId.slice(0, 8)}` : '';
-      const filename = `health_articles_export${pdfSuffix}_${timestamp}.json`;
-      
-      downloadBlob(blob, filename);
-      toast.success('Export completed successfully');
-      
+
+      setUploadResult(result);
+
+      if (result.uploaded_articles > 0) {
+        toast.success(
+          `Successfully uploaded ${result.uploaded_articles} articles to app database`
+        );
+      } else {
+        toast(result.message);
+      }
+
+      // Refresh summary to show updated counts
+      await loadSummary();
     } catch (error) {
-      console.error('Error exporting articles:', error);
-      toast.error('Failed to export articles');
+      console.error("Error uploading articles:", error);
+      toast.error("Failed to upload articles to app database");
     } finally {
       setLoading(false);
     }
   };
 
   const handleCategoryToggle = (category: string) => {
-    setSelectedCategories(prev => 
+    setSelectedCategories((prev) =>
       prev.includes(category)
-        ? prev.filter(c => c !== category)
+        ? prev.filter((c) => c !== category)
         : [...prev, category]
     );
   };
@@ -90,51 +97,37 @@ export default function ExportPage() {
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:tracking-tight">
-          Export Articles
+          Upload Articles to App Database
         </h1>
         <p className="mt-2 text-sm text-gray-700">
-          Export health education articles in JSON format with custom filters
+          Upload approved health education articles directly to the app database
         </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Export Configuration */}
+        {/* Upload Configuration */}
         <div className="lg:col-span-2">
           <div className="bg-white shadow rounded-lg">
             <div className="px-4 py-5 sm:p-6">
               <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                Export Configuration
+                Upload Configuration
               </h3>
-              
+
               <div className="space-y-6">
-                {/* Status Filter */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Article Status
-                  </label>
-                  <div className="space-y-2">
-                    <label className="inline-flex items-center">
-                      <input
-                        type="radio"
-                        name="status"
-                        value="approved"
-                        checked={selectedStatus === 'approved'}
-                        onChange={(e) => setSelectedStatus(e.target.value)}
-                        className="form-radio h-4 w-4 text-indigo-600 transition duration-150 ease-in-out"
-                      />
-                      <span className="ml-2 text-sm">Approved articles only</span>
-                    </label>
-                    <label className="inline-flex items-center">
-                      <input
-                        type="radio"
-                        name="status"
-                        value=""
-                        checked={selectedStatus === ''}
-                        onChange={(e) => setSelectedStatus(e.target.value)}
-                        className="form-radio h-4 w-4 text-indigo-600 transition duration-150 ease-in-out"
-                      />
-                      <span className="ml-2 text-sm">All articles</span>
-                    </label>
+                {/* Info about what gets uploaded */}
+                <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+                  <div className="flex">
+                    <div className="ml-3">
+                      <h3 className="text-sm font-medium text-blue-800">
+                        Upload Information
+                      </h3>
+                      <div className="mt-2 text-sm text-blue-700">
+                        <p>
+                          Only approved articles that haven&apos;t been uploaded
+                          yet will be processed.
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -144,8 +137,11 @@ export default function ExportPage() {
                     Categories (optional)
                   </label>
                   <div className="grid grid-cols-2 gap-2">
-                    {HEALTH_CATEGORIES.map(category => (
-                      <label key={category} className="inline-flex items-center">
+                    {HEALTH_CATEGORIES.map((category) => (
+                      <label
+                        key={category}
+                        className="inline-flex items-center"
+                      >
                         <input
                           type="checkbox"
                           checked={selectedCategories.includes(category)}
@@ -172,68 +168,73 @@ export default function ExportPage() {
                     className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                   >
                     <option value="">All PDFs</option>
-                                         {pdfs.map(pdf => (
-                       <option key={pdf.id} value={pdf.id}>
-                         {pdf.filename}
-                       </option>
-                     ))}
+                    {pdfs.map((pdf) => (
+                      <option key={pdf.id} value={pdf.id}>
+                        {pdf.filename}
+                      </option>
+                    ))}
                   </select>
                   <p className="mt-1 text-xs text-gray-500">
                     Select a PDF to filter articles by its content
                   </p>
                 </div>
 
-                {/* Date Range */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-2">
-                      Start Date (optional)
-                    </label>
-                    <input
-                      type="date"
-                      id="startDate"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-2">
-                      End Date (optional)
-                    </label>
-                    <input
-                      type="date"
-                      id="endDate"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                    />
-                  </div>
-                </div>
-
-                {/* Export Button */}
+                {/* Upload Button */}
                 <div className="pt-4 border-t border-gray-200">
                   <button
-                    onClick={handleExport}
+                    onClick={handleUpload}
                     disabled={loading}
                     className="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <ArrowDownTrayIcon className="h-4 w-4 mr-2" />
-                    {loading ? 'Exporting...' : 'Export JSON'}
+                    {loading ? "Uploading..." : "Upload to App Database"}
                   </button>
                 </div>
+
+                {/* Upload Result */}
+                {uploadResult && (
+                  <div className="mt-6 p-4 bg-gray-50 rounded-md">
+                    <h4 className="text-sm font-medium text-gray-900 mb-2">
+                      Upload Result:
+                    </h4>
+                    <div className="text-sm text-gray-600 space-y-1">
+                      <p>
+                        • Total articles processed:{" "}
+                        {uploadResult.total_articles}
+                      </p>
+                      <p>
+                        • Successfully uploaded:{" "}
+                        {uploadResult.uploaded_articles}
+                      </p>
+                      <p>• Failed: {uploadResult.failed_articles}</p>
+                      {uploadResult.failed_details &&
+                        uploadResult.failed_details.length > 0 && (
+                          <div className="mt-2">
+                            <p className="font-medium">Failed articles:</p>
+                            {uploadResult.failed_details.map(
+                              (failed, index) => (
+                                <p key={index} className="ml-2 text-red-600">
+                                  • {failed.title}: {failed.reason}
+                                </p>
+                              )
+                            )}
+                          </div>
+                        )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
         </div>
 
-        {/* Export Summary */}
+        {/* Upload Summary */}
         <div>
           <div className="bg-white shadow rounded-lg">
             <div className="px-4 py-5 sm:p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg leading-6 font-medium text-gray-900">
-                  Export Summary
+                  Upload Summary
                 </h3>
                 <button
                   onClick={loadSummary}
@@ -242,36 +243,65 @@ export default function ExportPage() {
                   Refresh
                 </button>
               </div>
-              
+
               {summary ? (
                 <div className="space-y-3">
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-500">Total Articles:</span>
-                    <span className="text-sm font-medium">{summary.total_articles}</span>
+                    <span className="text-sm text-gray-500">
+                      Total Articles:
+                    </span>
+                    <span className="text-sm font-medium">
+                      {summary.total_articles}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-500">
+                      Ready to Upload:
+                    </span>
+                    <span className="text-sm font-medium text-blue-600">
+                      {summary.ready_to_upload || 0}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-500">
+                      Already Uploaded:
+                    </span>
+                    <span className="text-sm font-medium text-green-600">
+                      {summary.status_breakdown.uploaded || 0}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-500">Approved:</span>
-                    <span className="text-sm font-medium text-green-600">{summary.status_breakdown.approved || 0}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-500">Under Review:</span>
-                    <span className="text-sm font-medium text-yellow-600">{(summary.status_breakdown.reviewed || 0) + (summary.status_breakdown.draft || 0)}</span>
+                    <span className="text-sm font-medium text-yellow-600">
+                      {summary.status_breakdown.approved || 0}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-500">Categories:</span>
-                    <span className="text-sm font-medium">{Object.keys(summary.category_breakdown).length}</span>
+                    <span className="text-sm font-medium">
+                      {Object.keys(summary.category_breakdown).length}
+                    </span>
                   </div>
-                  
+
                   {summary.category_breakdown && (
                     <div className="pt-3 border-t border-gray-200">
                       <p className="text-xs text-gray-500 mb-2">By Category:</p>
                       <div className="space-y-1">
-                        {Object.entries(summary.category_breakdown).map(([category, count]) => (
-                          <div key={category} className="flex justify-between">
-                            <span className="text-xs text-gray-600">{category}:</span>
-                            <span className="text-xs font-medium">{count}</span>
-                          </div>
-                        ))}
+                        {Object.entries(summary.category_breakdown).map(
+                          ([category, count]) => (
+                            <div
+                              key={category}
+                              className="flex justify-between"
+                            >
+                              <span className="text-xs text-gray-600">
+                                {category}:
+                              </span>
+                              <span className="text-xs font-medium">
+                                {count}
+                              </span>
+                            </div>
+                          )
+                        )}
                       </div>
                     </div>
                   )}
@@ -292,4 +322,4 @@ export default function ExportPage() {
       </div>
     </div>
   );
-} 
+}
