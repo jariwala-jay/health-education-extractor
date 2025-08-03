@@ -237,7 +237,7 @@ class PDFParser:
             'health', 'medical', 'disease', 'condition', 'treatment', 'symptoms',
             'diet', 'nutrition', 'exercise', 'medication', 'doctor', 'patient',
             'blood pressure', 'diabetes', 'heart', 'kidney', 'hypertension',
-            'chronic', 'wellness', 'prevention', 'care', 'therapy', 'clinical'
+            'chronic', 'wellness', 'prevention', 'care', 'therapy', 'clinical', 'obesity'
         ]
         
         text_lower = text.lower()

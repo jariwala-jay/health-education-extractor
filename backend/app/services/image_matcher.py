@@ -57,6 +57,10 @@ class UnsplashImageMatcher:
             'General Health': [
                 'healthy lifestyle', 'wellness concept', 'medical care',
                 'health checkup', 'preventive care', 'health and wellness'
+            ],
+            'Obesity': [
+                'obesity management', 'weight loss', 'fitness', 'diet', 'nutrition',
+                'exercise', 'fitness', 'weight loss', 'nutrition', 'diet'
             ]
         }
         
