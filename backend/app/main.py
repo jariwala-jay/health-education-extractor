@@ -7,7 +7,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from app.config import settings
-from app.api.v1 import pdf_processing, health_articles
+from app.api.v1 import pdf_processing, health_articles, auth
 from app.core.database import init_database, close_database
 from app.services.app_database_uploader import app_uploader
 
@@ -65,6 +65,12 @@ async def health_check():
 
 
 # Include routers
+app.include_router(
+    auth.router,
+    prefix="/api/v1",
+    tags=["Authentication"]
+)
+
 app.include_router(
     pdf_processing.router,
     prefix="/api/v1/pdf",

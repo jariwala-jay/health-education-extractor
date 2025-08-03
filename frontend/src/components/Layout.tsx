@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { Fragment, useState } from 'react';
-import { Dialog, Transition } from '@headlessui/react';
+import { Fragment, useState } from "react";
+import { Dialog, Transition } from "@headlessui/react";
 import {
   Bars3Icon,
   DocumentTextIcon,
@@ -9,16 +9,19 @@ import {
   CloudArrowUpIcon,
   DocumentArrowDownIcon,
   XMarkIcon,
-} from '@heroicons/react/24/outline';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { clsx } from 'clsx';
+  ArrowRightOnRectangleIcon,
+} from "@heroicons/react/24/outline";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { clsx } from "clsx";
+import { useAuth } from "@/contexts/AuthContext";
+import ProtectedRoute from "./ProtectedRoute";
 
 const navigation = [
-  { name: 'Dashboard', href: '/', icon: HomeIcon },
-  { name: 'Upload PDF', href: '/upload', icon: CloudArrowUpIcon },
-  { name: 'Articles', href: '/articles', icon: DocumentTextIcon },
-  { name: 'Export', href: '/export', icon: DocumentArrowDownIcon },
+  { name: "Dashboard", href: "/", icon: HomeIcon },
+  { name: "Upload PDF", href: "/upload", icon: CloudArrowUpIcon },
+  { name: "Articles", href: "/articles", icon: DocumentTextIcon },
+  { name: "Export", href: "/export", icon: DocumentArrowDownIcon },
 ];
 
 interface LayoutProps {
@@ -28,11 +31,21 @@ interface LayoutProps {
 export default function Layout({ children }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
+  const { user, logout, isAuthenticated } = useAuth();
+
+  // Don't show the sidebar layout for login page
+  if (pathname === "/login") {
+    return <>{children}</>;
+  }
 
   return (
     <div>
       <Transition.Root show={sidebarOpen} as={Fragment}>
-        <Dialog as="div" className="relative z-50 lg:hidden" onClose={setSidebarOpen}>
+        <Dialog
+          as="div"
+          className="relative z-50 lg:hidden"
+          onClose={setSidebarOpen}
+        >
           <Transition.Child
             as={Fragment}
             enter="transition-opacity ease-linear duration-300"
@@ -72,14 +85,19 @@ export default function Layout({ children }: LayoutProps) {
                       onClick={() => setSidebarOpen(false)}
                     >
                       <span className="sr-only">Close sidebar</span>
-                      <XMarkIcon className="h-6 w-6 text-white" aria-hidden="true" />
+                      <XMarkIcon
+                        className="h-6 w-6 text-white"
+                        aria-hidden="true"
+                      />
                     </button>
                   </div>
                 </Transition.Child>
                 {/* Sidebar component, swap this element with another sidebar if you like */}
                 <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-white px-6 pb-2">
                   <div className="flex h-16 shrink-0 items-center">
-                    <h1 className="text-xl font-bold text-gray-900">Health Education Extractor</h1>
+                    <h1 className="text-xl font-bold text-gray-900">
+                      Health Education Extractor
+                    </h1>
                   </div>
                   <nav className="flex flex-1 flex-col">
                     <ul role="list" className="flex flex-1 flex-col gap-y-7">
@@ -91,18 +109,18 @@ export default function Layout({ children }: LayoutProps) {
                                 href={item.href}
                                 className={clsx(
                                   pathname === item.href
-                                    ? 'bg-gray-50 text-indigo-600'
-                                    : 'text-gray-700 hover:text-indigo-600 hover:bg-gray-50',
-                                  'group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold'
+                                    ? "bg-gray-50 text-indigo-600"
+                                    : "text-gray-700 hover:text-indigo-600 hover:bg-gray-50",
+                                  "group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold"
                                 )}
                                 onClick={() => setSidebarOpen(false)}
                               >
                                 <item.icon
                                   className={clsx(
                                     pathname === item.href
-                                      ? 'text-indigo-600'
-                                      : 'text-gray-400 group-hover:text-indigo-600',
-                                    'h-6 w-6 shrink-0'
+                                      ? "text-indigo-600"
+                                      : "text-gray-400 group-hover:text-indigo-600",
+                                    "h-6 w-6 shrink-0"
                                   )}
                                   aria-hidden="true"
                                 />
@@ -111,6 +129,25 @@ export default function Layout({ children }: LayoutProps) {
                             </li>
                           ))}
                         </ul>
+                      </li>
+                      <li className="mt-auto">
+                        <div className="flex items-center gap-x-4 px-2 py-3 text-sm font-semibold leading-6 text-gray-900">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-600 text-white text-xs font-medium">
+                            {user?.username?.charAt(0).toUpperCase()}
+                          </div>
+                          <span className="sr-only">Your profile</span>
+                          <span aria-hidden="true">{user?.username}</span>
+                        </div>
+                        <button
+                          onClick={logout}
+                          className="group flex w-full gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold text-gray-700 hover:text-indigo-600 hover:bg-gray-50"
+                        >
+                          <ArrowRightOnRectangleIcon
+                            className="h-6 w-6 shrink-0 text-gray-400 group-hover:text-indigo-600"
+                            aria-hidden="true"
+                          />
+                          Sign out
+                        </button>
                       </li>
                     </ul>
                   </nav>
@@ -126,7 +163,9 @@ export default function Layout({ children }: LayoutProps) {
         {/* Sidebar component, swap this element with another sidebar if you like */}
         <div className="flex grow flex-col gap-y-5 overflow-y-auto border-r border-gray-200 bg-white px-6">
           <div className="flex h-16 shrink-0 items-center">
-            <h1 className="text-xl font-bold text-gray-900">Health Education Extractor</h1>
+            <h1 className="text-xl font-bold text-gray-900">
+              Health Education Extractor
+            </h1>
           </div>
           <nav className="flex flex-1 flex-col">
             <ul role="list" className="flex flex-1 flex-col gap-y-7">
@@ -138,17 +177,17 @@ export default function Layout({ children }: LayoutProps) {
                         href={item.href}
                         className={clsx(
                           pathname === item.href
-                            ? 'bg-gray-50 text-indigo-600'
-                            : 'text-gray-700 hover:text-indigo-600 hover:bg-gray-50',
-                          'group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold'
+                            ? "bg-gray-50 text-indigo-600"
+                            : "text-gray-700 hover:text-indigo-600 hover:bg-gray-50",
+                          "group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold"
                         )}
                       >
                         <item.icon
                           className={clsx(
                             pathname === item.href
-                              ? 'text-indigo-600'
-                              : 'text-gray-400 group-hover:text-indigo-600',
-                            'h-6 w-6 shrink-0'
+                              ? "text-indigo-600"
+                              : "text-gray-400 group-hover:text-indigo-600",
+                            "h-6 w-6 shrink-0"
                           )}
                           aria-hidden="true"
                         />
@@ -157,6 +196,25 @@ export default function Layout({ children }: LayoutProps) {
                     </li>
                   ))}
                 </ul>
+              </li>
+              <li className="mt-auto">
+                <div className="flex items-center gap-x-4 px-2 py-3 text-sm font-semibold leading-6 text-gray-900">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-600 text-white text-xs font-medium">
+                    {user?.username?.charAt(0).toUpperCase()}
+                  </div>
+                  <span className="sr-only">Your profile</span>
+                  <span aria-hidden="true">{user?.username}</span>
+                </div>
+                <button
+                  onClick={logout}
+                  className="group flex w-full gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold text-gray-700 hover:text-indigo-600 hover:bg-gray-50"
+                >
+                  <ArrowRightOnRectangleIcon
+                    className="h-6 w-6 shrink-0 text-gray-400 group-hover:text-indigo-600"
+                    aria-hidden="true"
+                  />
+                  Sign out
+                </button>
               </li>
             </ul>
           </nav>
@@ -179,9 +237,9 @@ export default function Layout({ children }: LayoutProps) {
 
       <main className="py-10 lg:pl-72">
         <div className="px-4 sm:px-6 lg:px-8">
-          {children}
+          <ProtectedRoute>{children}</ProtectedRoute>
         </div>
       </main>
     </div>
   );
-} 
+}

@@ -3,7 +3,7 @@
 import os
 import uuid
 import aiofiles
-from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks, Query
+from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks, Query, Depends
 from fastapi.responses import JSONResponse
 from typing import List, Optional
 import logging
@@ -17,10 +17,11 @@ from app.models.pdf_document import (
     PDFListResponse,
     PDFProcessingStatus
 )
+from app.core.auth_middleware import get_current_active_user
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(get_current_active_user)])
 
 
 @router.post("/upload", response_model=PDFUploadResponse)

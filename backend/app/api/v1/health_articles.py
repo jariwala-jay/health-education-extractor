@@ -1,6 +1,6 @@
 """Health articles API endpoints."""
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 from typing import List, Optional
 import logging
 import json
@@ -17,10 +17,12 @@ from app.models.health_article import (
     ProcessingStatus
 )
 from app.services.app_database_uploader import app_uploader
+from app.core.auth_middleware import get_current_active_user
+from app.models.auth import User
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(get_current_active_user)])
 
 
 @router.post("/", response_model=HealthArticleResponse)
