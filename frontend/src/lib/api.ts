@@ -143,7 +143,7 @@ export const listPDFs = async (
   page: number;
   per_page: number;
 }> => {
-  const params: any = { page, per_page: perPage };
+  const params: Record<string, string | number> = { page, per_page: perPage };
   if (status) params.status = status;
 
   const response = await apiClient.get("/api/v1/pdf/list", { params });
@@ -166,7 +166,10 @@ export const listArticles = async (
   search?: string,
   tags?: string[]
 ): Promise<HealthArticle[]> => {
-  const params: any = { page, per_page: perPage };
+  const params: Record<string, string | number | string[]> = {
+    page,
+    per_page: perPage,
+  };
   if (category) params.category = category;
   if (status) params.status = status;
   if (search) params.search = search;
@@ -298,14 +301,32 @@ export const downloadBlob = (blob: Blob, filename: string) => {
 };
 
 export const isAPIError = (
-  error: any
+  error: unknown
 ): error is { response: { data: { detail: string } } } => {
-  return error?.response?.data?.detail;
+  return Boolean(
+    error &&
+      typeof error === "object" &&
+      "response" in error &&
+      error.response &&
+      typeof error.response === "object" &&
+      "data" in error.response &&
+      error.response.data &&
+      typeof error.response.data === "object" &&
+      "detail" in error.response.data
+  );
 };
 
-export const getErrorMessage = (error: any): string => {
+export const getErrorMessage = (error: unknown): string => {
   if (isAPIError(error)) {
     return error.response.data.detail;
   }
-  return error?.message || "An unexpected error occurred";
+  if (
+    error &&
+    typeof error === "object" &&
+    "message" in error &&
+    typeof error.message === "string"
+  ) {
+    return error.message;
+  }
+  return "An unexpected error occurred";
 };
