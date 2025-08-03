@@ -22,6 +22,7 @@ class ProcessingStatus(str, Enum):
     DRAFT = "draft"
     REVIEWED = "reviewed"
     APPROVED = "approved"
+    UPLOADED = "uploaded"  # Article has been uploaded to app database
     REJECTED = "rejected"
 
 
@@ -39,6 +40,9 @@ class HealthArticle(Document):
     source_pdf_id: Optional[str] = Field(None, description="Reference to source PDF document")
     chunk_id: Optional[str] = Field(None, description="Reference to source chunk")
     processing_status: ProcessingStatus = Field(default=ProcessingStatus.DRAFT)
+    
+    # App database integration
+    app_article_id: Optional[str] = Field(None, description="ID of the article in the app database after upload")
     
     # Quality metrics
     reading_level_score: Optional[float] = Field(None, ge=1.0, le=12.0)
@@ -60,7 +64,8 @@ class HealthArticle(Document):
             "medical_condition_tags",
             "processing_status",
             "created_at",
-            "source_pdf_id"
+            "source_pdf_id",
+            "app_article_id"  # Add index for app article ID
         ]
     
     def __str__(self) -> str:
@@ -100,6 +105,7 @@ class HealthArticleResponse(BaseModel):
     source_pdf_id: Optional[str]
     chunk_id: Optional[str]
     processing_status: ProcessingStatus
+    app_article_id: Optional[str]
     reading_level_score: Optional[float]
     similarity_scores: Optional[List[float]]
     created_at: datetime
