@@ -1,0 +1,62 @@
+runtime: python311
+
+# App Engine Standard Environment
+env: standard
+
+# Instance class (F1 is free tier, F2/F4 for better performance)
+instance_class: F2
+
+# Automatic scaling configuration
+automatic_scaling:
+  min_instances: 1
+  max_instances: 10
+  target_cpu_utilization: 0.6
+
+# Environment variables (includes secrets from Google Secret Manager)
+env_variables:
+  # Database Configuration
+  MONGODB_DB_NAME: "health_education_extractor"
+  APP_MONGODB_DB_NAME: "test"
+
+  # Application Settings
+  DEBUG: "false"
+  LOG_LEVEL: "INFO"
+  MAX_FILE_SIZE_MB: "50"
+  CHUNK_SIZE_WORDS: "200"
+  SIMILARITY_THRESHOLD: "0.85"
+  MAX_IMAGES_PER_ARTICLE: "1"
+  READING_LEVEL_TARGET: "6"
+  HOST: "0.0.0.0"
+  PORT: "8080" # App Engine uses port 8080
+  ACCESS_TOKEN_EXPIRE_MINUTES: "1440"
+  ADMIN_USERNAME: "admin"
+
+  # Secrets from Google Secret Manager
+  MONGODB_URL: ${sm://mongodb-url}
+  SECRET_KEY: ${sm://jwt-secret-key}
+  ADMIN_PASSWORD: ${sm://admin-password}
+  GEMINI_API_KEY: ${sm://gemini-api-key}
+  UNSPLASH_ACCESS_KEY: ${sm://unsplash-access-key}
+  UNSPLASH_SECRET_KEY: ${sm://unsplash-secret-key}
+
+# Health check configuration
+health_check:
+  enable_health_check: true
+  check_interval_sec: 30
+  timeout_sec: 4
+  unhealthy_threshold: 2
+  healthy_threshold: 2
+
+# Handlers for static files and API routes
+handlers:
+  - url: /health
+    script: auto
+    secure: always
+
+  - url: /api/.*
+    script: auto
+    secure: always
+
+  - url: /.*
+    script: auto
+    secure: always
