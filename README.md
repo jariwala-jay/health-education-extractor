@@ -77,7 +77,7 @@ health-education-extractor/
    ```
 
 3. **Configure environment variables**
-   Create a `.env` file in the project root:
+   Create a `.env` file in the `backend/` directory:
 
    ```env
    # Database Configuration
@@ -87,6 +87,11 @@ health-education-extractor/
    # App Database Configuration (for published articles)
    # Note: APP_MONGODB_URL uses the same connection as MONGODB_URL
    APP_MONGODB_DB_NAME=test
+
+   # Authentication & Security (REQUIRED)
+   SECRET_KEY=your-super-secret-jwt-key-change-this-in-production
+   ADMIN_USERNAME=admin
+   ADMIN_PASSWORD=your-secure-admin-password
 
    # Google AI (Gemini) API
    GEMINI_API_KEY=your_gemini_api_key_here
@@ -111,10 +116,20 @@ health-education-extractor/
    PORT=8000
    ```
 
-4. **Start MongoDB**
+4. **Generate secure secrets** (IMPORTANT for production):
+
+   ```bash
+   # Generate a strong JWT secret key
+   openssl rand -hex 32
+
+   # Generate a strong admin password
+   openssl rand -base64 32
+   ```
+
+5. **Start MongoDB**
    Make sure MongoDB is running locally or configure connection to cloud instance.
 
-5. **Run the application**
+6. **Run the application**
 
    ```bash
    cd backend
