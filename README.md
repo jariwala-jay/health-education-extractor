@@ -61,12 +61,14 @@ health-education-extractor/
 ### Installation
 
 1. **Clone the repository**
+
    ```bash
    git clone <repository-url>
    cd health-education-extractor
    ```
 
 2. **Set up Python environment**
+
    ```bash
    cd backend
    python -m venv venv
@@ -76,10 +78,15 @@ health-education-extractor/
 
 3. **Configure environment variables**
    Create a `.env` file in the project root:
+
    ```env
    # Database Configuration
    MONGODB_URL=mongodb://localhost:27017
    MONGODB_DB_NAME=health_education_extractor
+
+   # App Database Configuration (for published articles)
+   # Note: APP_MONGODB_URL uses the same connection as MONGODB_URL
+   APP_MONGODB_DB_NAME=test
 
    # Google AI (Gemini) API
    GEMINI_API_KEY=your_gemini_api_key_here
@@ -108,33 +115,36 @@ health-education-extractor/
    Make sure MongoDB is running locally or configure connection to cloud instance.
 
 5. **Run the application**
+
    ```bash
    cd backend
-   source venv/bin/activate  # Activate virtual environment
-   PYTHONPATH=. uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+   source venv/bin/activate && PYTHONPATH=. uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
    ```
 
    The API will be available at `http://localhost:8000`
+
    - Interactive API docs: `http://localhost:8000/docs`
    - Health check: `http://localhost:8000/health`
 
 ## 📋 API Endpoints
 
 ### PDF Processing
+
 - `POST /api/v1/pdf/upload` - Upload PDF for processing
 - `GET /api/v1/pdf/status/{pdf_id}` - Get processing status
 - `GET /api/v1/pdf/list` - List all PDFs with pagination
 - `DELETE /api/v1/pdf/{pdf_id}` - Delete PDF and associated data
 
 ### Health Articles
+
 - `POST /api/v1/articles/` - Create new article
 - `GET /api/v1/articles/` - List articles with filtering
 - `GET /api/v1/articles/{article_id}` - Get specific article
 - `PUT /api/v1/articles/{article_id}` - Update article
 - `DELETE /api/v1/articles/{article_id}` - Delete article
-- `POST /api/v1/articles/{article_id}/approve` - Approve article
+- `POST /api/v1/articles/{article_id}/approve` - Approve article and upload to app database
 - `POST /api/v1/articles/{article_id}/reject` - Reject article
-- `GET /api/v1/articles/export/json` - Export articles as JSON
+- `POST /api/v1/articles/upload-to-app-database` - Upload approved articles to app database
 - `GET /api/v1/articles/export/summary` - Get export summary statistics
 
 ## 🔄 Processing Pipeline
@@ -147,6 +157,8 @@ health-education-extractor/
 6. **Image Matching** - Unsplash API finds relevant images
 7. **Duplicate Detection** - FAISS/ChromaDB prevents duplicates
 8. **Article Generation** - Create structured JSON output
+9. **Review & Approval** - Human review and approval workflow
+10. **App Database Upload** - Approved articles automatically uploaded to app database
 
 ### Example Output
 
@@ -163,12 +175,14 @@ health-education-extractor/
 ## 🧪 Development
 
 ### Running Tests
+
 ```bash
 cd backend
 pytest tests/
 ```
 
 ### Code Formatting
+
 ```bash
 black backend/app/
 flake8 backend/app/
@@ -182,6 +196,7 @@ flake8 backend/app/
 ## 🛣️ Roadmap
 
 ### Phase 1 - MVP ✅
+
 - [x] PDF upload & parsing
 - [x] Basic FastAPI structure
 - [x] MongoDB integration
@@ -194,12 +209,14 @@ flake8 backend/app/
 - [x] Complete processing pipeline
 
 ### Phase 2 - Admin UI
-- [ ] Next.js frontend dashboard
-- [ ] PDF upload interface
-- [ ] Article review/approval system
-- [ ] Content management interface
+
+- [x] Next.js frontend dashboard
+- [x] PDF upload interface
+- [x] Article review/approval system
+- [x] Content management interface
 
 ### Phase 3 - Advanced Features
+
 - [ ] Automated monitoring for new files
 - [ ] Multi-condition support (CKD, asthma)
 - [ ] Enhanced image quality checks
