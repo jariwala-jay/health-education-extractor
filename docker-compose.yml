@@ -1,44 +1,96 @@
-version: '3.8'
+version: "3.8"
 
 services:
+  # MongoDB Database
   mongodb:
-    image: mongo:7
-    container_name: health_extractor_mongodb
+    image: mongo:7.0
+    container_name: health-extractor-db
     restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-password}
+      MONGO_INITDB_DATABASE: health_education_extractor
     ports:
       - "27017:27017"
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: password
-      MONGO_INITDB_DATABASE: health_education_extractor
     volumes:
       - mongodb_data:/data/db
+      - ./scripts/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
     networks:
-      - health_extractor_network
+      - health-extractor-network
 
+  # Backend API
   backend:
-    build: .
-    container_name: health_extractor_backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: health-extractor-backend
     restart: unless-stopped
-    ports:
-      - "8000:8000"
     environment:
       - MONGODB_URL=mongodb://admin:password@mongodb:27017/health_education_extractor?authSource=admin
       - MONGODB_DB_NAME=health_education_extractor
-      - DEBUG=True
+      - APP_MONGODB_DB_NAME=test
+      - SECRET_KEY=${SECRET_KEY}
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - UNSPLASH_ACCESS_KEY=${UNSPLASH_ACCESS_KEY}
+      - UNSPLASH_SECRET_KEY=${UNSPLASH_SECRET_KEY}
+      - DEBUG=false
       - LOG_LEVEL=INFO
-    volumes:
-      - ./data:/app/data
-      - ./backend:/app
+      - HOST=0.0.0.0
+      - PORT=8000
+    ports:
+      - "8000:8000"
     depends_on:
       - mongodb
+    volumes:
+      - ./backend/data:/app/data
     networks:
-      - health_extractor_network
-    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+      - health-extractor-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: health-extractor-frontend
+    restart: unless-stopped
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - health-extractor-network
+
+  # Nginx Reverse Proxy (Optional)
+  nginx:
+    image: nginx:alpine
+    container_name: health-extractor-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - health-extractor-network
 
 volumes:
   mongodb_data:
+    driver: local
 
 networks:
-  health_extractor_network:
-    driver: bridge 
+  health-extractor-network:
+    driver: bridge
