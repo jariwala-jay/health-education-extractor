@@ -58,7 +58,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const verifyToken = async (authToken: string) => {
     try {
-      const response = await fetch("http://localhost:8000/api/v1/auth/me", {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const response = await fetch(`${apiUrl}/api/v1/auth/me`, {
         headers: {
           Authorization: `Bearer ${authToken}`,
           "Content-Type": "application/json",
@@ -91,16 +92,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   ): Promise<boolean> => {
     try {
       setIsLoading(true);
-      const response = await fetch(
-        "http://localhost:8000/api/v1/auth/login/json",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ username, password }),
-        }
-      );
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const response = await fetch(`${apiUrl}/api/v1/auth/login/json`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ username, password }),
+      });
 
       if (response.ok) {
         const data = await response.json();
