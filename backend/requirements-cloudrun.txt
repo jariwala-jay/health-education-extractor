@@ -11,6 +11,9 @@ beanie==1.23.6
 # Google AI (Gemini)
 google-generativeai==0.3.2
 
+# PDF Processing
+PyMuPDF==1.23.14
+
 # Basic utilities
 requests==2.31.0
 python-dotenv==1.0.0

@@ -1,11 +1,13 @@
 """
-Entry point for Google App Engine deployment.
+Entry point for Google Cloud Run deployment.
 This file imports the FastAPI app from the app module.
 """
 
+import os
 from app.main import app
 
-# This is required for App Engine to find the application
+# This is required for Cloud Run to find the application
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8080) 
+    port = int(os.environ.get("PORT", 8080))
+    uvicorn.run(app, host="0.0.0.0", port=port) 
