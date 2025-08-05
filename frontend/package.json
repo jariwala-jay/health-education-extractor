@@ -13,6 +13,7 @@
     "@heroicons/react": "^2.2.0",
     "axios": "^1.11.0",
     "clsx": "^2.1.1",
+    "critters": "^0.0.24",
     "date-fns": "^4.1.0",
     "next": "15.4.4",
     "react": "19.1.0",
