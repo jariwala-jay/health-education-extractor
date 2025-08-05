@@ -42,9 +42,14 @@ app = FastAPI(
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # React frontend
+    allow_origins=[
+        "http://localhost:3000",  # Local development
+        "https://health-education-extractor.vercel.app",  # Vercel production
+        "https://health-education-extractor-git-main-jariwala-jays-projects.vercel.app",  # Vercel git branch
+        "https://*.vercel.app",
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"],
     allow_headers=["*"],
 )
 
