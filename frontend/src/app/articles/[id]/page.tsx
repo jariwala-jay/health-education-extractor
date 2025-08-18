@@ -9,9 +9,11 @@ import {
   PencilIcon,
   TagIcon,
   CalendarIcon,
-  EyeIcon
+  EyeIcon,
+  DocumentTextIcon,
+  ArrowTopRightOnSquareIcon
 } from '@heroicons/react/24/outline';
-import { getArticle, approveArticle, rejectArticle, type HealthArticle } from '@/lib/api';
+import { getArticle, approveArticle, rejectArticle, downloadPDF, getPDFStatus, type HealthArticle, type PDFDocument } from '@/lib/api';
 import { getCategoryColor, getStatusColor } from '@/lib/constants';
 import { formatDistanceToNow } from 'date-fns';
 import toast from 'react-hot-toast';
@@ -22,8 +24,10 @@ export default function ArticleDetailPage() {
   const params = useParams();
   const router = useRouter();
   const [article, setArticle] = useState<HealthArticle | null>(null);
+  const [pdfDocument, setPdfDocument] = useState<PDFDocument | null>(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
+  const [activeTab, setActiveTab] = useState<'content' | 'references'>('content');
 
   const articleId = params.id as string;
 
@@ -31,13 +35,24 @@ export default function ArticleDetailPage() {
     if (articleId) {
       loadArticle();
     }
-  }, [articleId]);
+  }, [articleId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadArticle = async () => {
     try {
       setLoading(true);
       const articleData = await getArticle(articleId);
       setArticle(articleData);
+
+      // Load PDF information if article has a source PDF
+      if (articleData.source_pdf_id) {
+        try {
+          const pdfData = await getPDFStatus(articleData.source_pdf_id);
+          setPdfDocument(pdfData);
+        } catch (pdfError) {
+          console.error('Error loading PDF info:', pdfError);
+          // Don't show error for PDF loading failure, just log it
+        }
+      }
     } catch (error) {
       console.error('Error loading article:', error);
       toast.error('Failed to load article');
@@ -76,6 +91,18 @@ export default function ArticleDetailPage() {
       toast.error('Failed to reject article');
     } finally {
       setProcessing(false);
+    }
+  };
+
+  const handleDownloadPDF = async () => {
+    if (!pdfDocument || !article?.source_pdf_id) return;
+    
+    try {
+      await downloadPDF(article.source_pdf_id, pdfDocument.filename);
+      toast.success('PDF download started');
+    } catch (error) {
+      console.error('Error downloading PDF:', error);
+      toast.error('Failed to download PDF');
     }
   };
 
@@ -159,15 +186,125 @@ export default function ArticleDetailPage() {
         {/* Main Content */}
         <div className="lg:col-span-2">
           <div className="bg-white shadow rounded-lg">
+            {/* Tab Navigation */}
+            <div className="border-b border-gray-200">
+              <nav className="-mb-px flex space-x-8 px-4 pt-5" aria-label="Tabs">
+                <button
+                  onClick={() => setActiveTab('content')}
+                  className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'content'
+                      ? 'border-indigo-500 text-indigo-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <DocumentTextIcon className="h-5 w-5 mr-2 inline" />
+                  Content
+                </button>
+                <button
+                  onClick={() => setActiveTab('references')}
+                  className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'references'
+                      ? 'border-indigo-500 text-indigo-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <ArrowTopRightOnSquareIcon className="h-5 w-5 mr-2 inline" />
+                  References
+                </button>
+              </nav>
+            </div>
+
+            {/* Tab Content */}
             <div className="px-4 py-5 sm:p-6">
-              <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                Article Content
-              </h3>
-              <div className="prose max-w-none">
-                <div className="whitespace-pre-wrap text-gray-700 leading-relaxed">
-                  {article.content}
+              {activeTab === 'content' && (
+                <div>
+                  <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                    Article Content
+                  </h3>
+                  <div className="prose max-w-none">
+                    <div className="whitespace-pre-wrap text-gray-700 leading-relaxed">
+                      {article.content}
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
+              
+              {activeTab === 'references' && (
+                <div>
+                  <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                    References & Sources
+                  </h3>
+                  
+                  {/* Official Sources */}
+                  {article.official_sources && article.official_sources.length > 0 && (
+                    <div className="mb-6">
+                      <h4 className="text-md font-medium text-gray-800 mb-3">Official Sources</h4>
+                      <ul className="space-y-2">
+                        {article.official_sources.map((source, index) => (
+                          <li key={index} className="flex items-start">
+                            <span className="inline-block w-2 h-2 bg-indigo-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
+                            <span className="text-gray-700">{source}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  
+                  {/* Learn More URL */}
+                  {article.learn_more_url && (
+                    <div className="mb-6">
+                      <h4 className="text-md font-medium text-gray-800 mb-3">Learn More</h4>
+                      <a
+                        href={article.learn_more_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center text-indigo-600 hover:text-indigo-500"
+                      >
+                        <ArrowTopRightOnSquareIcon className="h-4 w-4 mr-1" />
+                        Visit Resource
+                      </a>
+                    </div>
+                  )}
+                  
+                  {/* Source PDF */}
+                  {pdfDocument && (
+                    <div className="mb-6">
+                      <h4 className="text-md font-medium text-gray-800 mb-3">Source Document</h4>
+                      <div className="border border-gray-200 rounded-lg p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium text-gray-900">{pdfDocument.filename}</p>
+                            <p className="text-sm text-gray-500">
+                              {(pdfDocument.file_size_bytes / (1024 * 1024)).toFixed(1)} MB
+                              {pdfDocument.total_pages && ` • ${pdfDocument.total_pages} pages`}
+                            </p>
+                          </div>
+                          <button
+                            onClick={handleDownloadPDF}
+                            className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                          >
+                            <DocumentTextIcon className="h-4 w-4 mr-2" />
+                            Download PDF
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Empty State */}
+                  {(!article.official_sources || article.official_sources.length === 0) && 
+                   !article.learn_more_url && 
+                   !pdfDocument && (
+                    <div className="text-center py-6">
+                      <DocumentTextIcon className="mx-auto h-12 w-12 text-gray-400" />
+                      <h3 className="mt-2 text-sm font-medium text-gray-900">No references available</h3>
+                      <p className="mt-1 text-sm text-gray-500">
+                        This article doesn&apos;t have any reference sources or additional resources.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -43,6 +43,8 @@ async def create_article(article_data: HealthArticleCreate):
             image_url=article.image_url,
             medical_condition_tags=article.medical_condition_tags,
             content=article.content,
+            official_sources=article.official_sources,
+            learn_more_url=article.learn_more_url,
             source_pdf_id=article.source_pdf_id,
             chunk_id=article.chunk_id,
             processing_status=article.processing_status,
@@ -76,6 +78,8 @@ async def get_article(article_id: str):
             image_url=article.image_url,
             medical_condition_tags=article.medical_condition_tags,
             content=article.content,
+            official_sources=article.official_sources,
+            learn_more_url=article.learn_more_url,
             source_pdf_id=article.source_pdf_id,
             chunk_id=article.chunk_id,
             processing_status=article.processing_status,
@@ -123,6 +127,8 @@ async def update_article(article_id: str, article_data: HealthArticleUpdate):
             image_url=article.image_url,
             medical_condition_tags=article.medical_condition_tags,
             content=article.content,
+            official_sources=article.official_sources,
+            learn_more_url=article.learn_more_url,
             source_pdf_id=article.source_pdf_id,
             chunk_id=article.chunk_id,
             processing_status=article.processing_status,
@@ -207,6 +213,8 @@ async def list_articles(
                 image_url=article.image_url,
                 medical_condition_tags=article.medical_condition_tags,
                 content=article.content,
+                official_sources=article.official_sources,
+                learn_more_url=article.learn_more_url,
                 source_pdf_id=article.source_pdf_id,
                 chunk_id=article.chunk_id,
                 processing_status=article.processing_status,
@@ -368,7 +376,7 @@ async def upload_articles_to_app_database(
             "processing_status": ProcessingStatus.APPROVED,  # Only approved articles
             "app_article_id": None  # That haven't been uploaded yet
         }
-        
+            
         if category:
             query_filters["category"] = category
             
@@ -392,7 +400,7 @@ async def upload_articles_to_app_database(
                     "tags": tags,
                     "source_pdf_id": source_pdf_id
                 }
-            }
+        }
         
         # Upload articles to app database
         uploaded_count = 0
@@ -433,7 +441,7 @@ async def upload_articles_to_app_database(
             except Exception as e:
                 failed_count += 1
                 failed_articles.append({
-                    "title": article.title,
+                "title": article.title,
                     "reason": str(e)
                 })
                 logger.error(f"Failed to export article {article.title}: {e}")
@@ -492,6 +500,8 @@ async def get_articles_by_pdf(
                 image_url=article.image_url,
                 medical_condition_tags=article.medical_condition_tags,
                 content=article.content,
+                official_sources=article.official_sources,
+                learn_more_url=article.learn_more_url,
                 source_pdf_id=article.source_pdf_id,
                 chunk_id=article.chunk_id,
                 processing_status=article.processing_status,

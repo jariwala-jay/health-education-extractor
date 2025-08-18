@@ -23,9 +23,16 @@ class SummarizedContent:
     category: str
     content: str
     medical_condition_tags: List[str]
+    official_sources: List[str] = None
+    learn_more_url: Optional[str] = None
     reading_level_score: Optional[float] = None
     source_chunk_id: str = ""
     confidence_score: Optional[float] = None
+    
+    def __post_init__(self):
+        """Initialize default values after object creation."""
+        if self.official_sources is None:
+            self.official_sources = []
 
 
 class GeminiSummarizer:
@@ -137,7 +144,12 @@ INSTRUCTIONS:
    - Keep paragraphs short (2-3 sentences max)
    - Target 6th-grade reading level
 4. Identify relevant medical condition tags
-5. Make sure the content is medically accurate but simplified
+5. Extract official sources/references if mentioned in the content:
+   - Look for organization names (CDC, WHO, Mayo Clinic, etc.)
+   - Look for website URLs or publication references
+   - Look for study citations or research mentions
+   - Look for official guidelines or recommendations
+6. Make sure the content is medically accurate but simplified
 
 RESPONSE FORMAT (JSON):
 {{
@@ -145,6 +157,8 @@ RESPONSE FORMAT (JSON):
     "category": "One of the valid categories",
     "content": "Easy-to-read article content with practical advice. Use simple words. Include what people can do to help themselves.",
     "medical_condition_tags": ["tag1", "tag2", "tag3"],
+    "official_sources": ["CDC - Centers for Disease Control", "Mayo Clinic", "American Heart Association"],
+    "learn_more_url": "https://example.com/more-info",
     "confidence_score": 0.85
 }}
 
@@ -154,6 +168,8 @@ EXAMPLE OUTPUT:
     "category": "Hypertension",
     "content": "High blood pressure means your blood pushes too hard on your blood vessels. This can hurt your heart and other organs.\\n\\nWhy it matters:\\n• It usually has no symptoms\\n• It can cause heart attacks and strokes\\n• It can damage your kidneys\\n\\nWhat you can do:\\n• Eat less salt\\n• Walk 30 minutes most days\\n• Maintain a healthy weight\\n• Take your medicine as prescribed\\n• Check your blood pressure regularly\\n\\nTalk to your doctor about the best plan for you.",
     "medical_condition_tags": ["Hypertension", "Blood pressure"],
+    "official_sources": ["American Heart Association", "CDC - High Blood Pressure"],
+    "learn_more_url": "https://www.heart.org/en/health-topics/high-blood-pressure",
     "confidence_score": 0.92
 }}
 
@@ -216,6 +232,8 @@ Remember: Keep it simple, practical, and encouraging. Focus on what people can d
                 category=category.value,
                 content=data['content'],
                 medical_condition_tags=data['medical_condition_tags'][:10],  # Limit tags
+                official_sources=data.get('official_sources', [])[:5],  # Limit sources
+                learn_more_url=data.get('learn_more_url'),
                 confidence_score=data.get('confidence_score', 0.8),
                 source_chunk_id=chunk.chunk_id
             )

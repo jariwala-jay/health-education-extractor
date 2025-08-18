@@ -11,6 +11,9 @@ const apiClient = axios.create({
   },
 });
 
+// Export the apiClient for direct use
+export { apiClient };
+
 // Add request interceptor to include auth token
 apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem("auth_token");
@@ -61,6 +64,8 @@ export interface HealthArticle {
   image_url?: string;
   medical_condition_tags: string[];
   content: string;
+  official_sources?: string[];
+  learn_more_url?: string;
   processing_status:
     | "draft"
     | "reviewed"
@@ -155,6 +160,17 @@ export const deletePDF = async (
 ): Promise<{ message: string }> => {
   const response = await apiClient.delete(`/api/v1/pdf/${pdfId}`);
   return response.data;
+};
+
+export const downloadPDF = async (
+  pdfId: string,
+  filename: string
+): Promise<void> => {
+  const response = await apiClient.get(`/api/v1/pdf/${pdfId}/download`, {
+    responseType: "blob",
+  });
+
+  downloadBlob(response.data, filename);
 };
 
 // Health Articles APIs
@@ -329,4 +345,393 @@ export const getErrorMessage = (error: unknown): string => {
     return error.message;
   }
   return "An unexpected error occurred";
+};
+
+// Recipe Types
+export interface RecipeOriginal {
+  id: string;
+  source_id?: string;
+  title: string;
+  image_url?: string;
+  ready_in_minutes?: number;
+  servings?: number;
+  instructions: string[];
+  cuisines: string[];
+  dish_types: string[];
+  diets: string[];
+  vegetarian?: boolean;
+  vegan?: boolean;
+  gluten_free?: boolean;
+  dairy_free?: boolean;
+  health_score?: number;
+  spoonacular_score?: number;
+  normalized_ingredients: Array<{
+    original?: string;
+    name_raw?: string;
+    quantity?: number;
+    unit?: string;
+    availability: "used" | "missed" | "unused";
+  }>;
+  created_at: string;
+  updated_at: string;
+  coverage_score?: number;
+  eligible?: boolean;
+  pantry_matches?: number;
+  missing_count?: number;
+  substitutions_count?: number;
+}
+
+export interface CuratedIngredient {
+  name: string;
+  quantity?: number;
+  unit?: string;
+  notes?: string;
+}
+
+export interface SubstitutionSuggestion {
+  original: string;
+  mapped_to?: string;
+  reason?: string;
+  confidence?: number;
+}
+
+export interface RecipeCurated {
+  id: string;
+  original_recipe_id: string;
+  title: string;
+  ingredients: CuratedIngredient[];
+  instructions: string[];
+  servings?: number;
+  time_minutes?: number;
+  curation_status: "draft" | "reviewed" | "approved" | "uploaded" | "rejected";
+  coverage_score?: number;
+  missing_ingredients: string[];
+  substitution_suggestions: SubstitutionSuggestion[];
+  reading_level_score?: number;
+  reviewer_notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RecipeAnalysis {
+  recipe: {
+    id: string;
+    title: string;
+  };
+  coverage_score: number;
+  eligible: boolean;
+  pantry_matches: string[];
+  missing: string[];
+  substitutions: Array<{
+    original: string;
+    mapped_to: string;
+    notes?: string;
+    strength?: number;
+  }>;
+  params: {
+    allow_substitutions: boolean;
+    max_missing: number;
+  };
+}
+
+// Recipe API Functions
+export const listRecipes = async (
+  page: number = 1,
+  perPage: number = 20,
+  search?: string,
+  eligibleOnly: boolean = false,
+  allowSubstitutions?: boolean,
+  maxMissing?: number
+): Promise<RecipeOriginal[]> => {
+  const params: Record<string, string | number | boolean> = {
+    page,
+    per_page: perPage,
+  };
+  if (search) params.search = search;
+  if (eligibleOnly) params.eligible_only = eligibleOnly;
+  if (allowSubstitutions !== undefined)
+    params.allow_substitutions = allowSubstitutions;
+  if (maxMissing !== undefined) params.max_missing = maxMissing;
+
+  const response = await apiClient.get("/api/v1/recipes/", { params });
+  return response.data;
+};
+
+export const analyzeRecipe = async (
+  recipeId: string,
+  allowSubstitutions?: boolean,
+  maxMissing?: number
+): Promise<RecipeAnalysis> => {
+  const params: Record<string, boolean | number> = {};
+  if (allowSubstitutions !== undefined)
+    params.allow_substitutions = allowSubstitutions;
+  if (maxMissing !== undefined) params.max_missing = maxMissing;
+
+  const response = await apiClient.get(`/api/v1/recipes/${recipeId}/analyze`, {
+    params,
+  });
+  return response.data;
+};
+
+export const curateRecipe = async (
+  recipeId: string,
+  allowSubstitutions: boolean = true,
+  maxMissing: number = 2,
+  targetServings?: number
+): Promise<{
+  message: string;
+  curated_id: string;
+  original_id: string;
+  title: string;
+  coverage_score: number;
+  ingredients_count: number;
+  instructions_count: number;
+  substitutions_applied: number;
+  validation_errors: string[];
+  confidence_score?: number;
+  status: string;
+}> => {
+  const params: Record<string, boolean | number> = {
+    allow_substitutions: allowSubstitutions,
+    max_missing: maxMissing,
+  };
+  if (targetServings !== undefined) params.target_servings = targetServings;
+
+  const response = await apiClient.post(
+    `/api/v1/recipes/${recipeId}/curate`,
+    null,
+    { params }
+  );
+  return response.data;
+};
+
+export const listCuratedRecipes = async (
+  page: number = 1,
+  perPage: number = 20,
+  status?: string
+): Promise<
+  Array<{
+    id: string;
+    original_recipe_id: string;
+    title: string;
+    curation_status: string;
+    coverage_score?: number;
+    ingredients_count: number;
+    instructions_count: number;
+    substitutions_count: number;
+    created_at: string;
+    updated_at: string;
+  }>
+> => {
+  const params: Record<string, string | number> = {
+    page,
+    per_page: perPage,
+  };
+  if (status) params.status = status;
+
+  const response = await apiClient.get("/api/v1/recipes/curated", { params });
+  return response.data;
+};
+
+export const getCuratedRecipe = async (
+  curatedId: string
+): Promise<{
+  curated: RecipeCurated;
+  original?: {
+    id: string;
+    title: string;
+    normalized_ingredients: Array<{
+      original?: string;
+      name_raw?: string;
+      quantity?: number;
+      unit?: string;
+      availability: string;
+    }>;
+  };
+}> => {
+  const response = await apiClient.get(`/api/v1/recipes/curated/${curatedId}`);
+  return response.data;
+};
+
+export const updateCuratedRecipe = async (
+  curatedId: string,
+  updates: Partial<RecipeCurated>
+): Promise<{
+  message: string;
+  id: string;
+  title: string;
+  updated_at: string;
+}> => {
+  const response = await apiClient.put(
+    `/api/v1/recipes/curated/${curatedId}`,
+    updates
+  );
+  return response.data;
+};
+
+export const approveCuratedRecipe = async (
+  curatedId: string
+): Promise<{
+  message: string;
+  status: string;
+}> => {
+  const response = await apiClient.post(
+    `/api/v1/recipes/curated/${curatedId}/approve`
+  );
+  return response.data;
+};
+
+export const rejectCuratedRecipe = async (
+  curatedId: string,
+  reason?: string
+): Promise<{
+  message: string;
+  status: string;
+}> => {
+  const response = await apiClient.post(
+    `/api/v1/recipes/curated/${curatedId}/reject`,
+    {
+      reason,
+    }
+  );
+  return response.data;
+};
+
+// Full Spoonacular Recipe Format Interface
+export interface SpoonacularRecipe {
+  id: number;
+  title: string;
+  image?: string;
+  imageType?: string;
+  readyInMinutes?: number;
+  servings?: number;
+  sourceUrl?: string;
+  vegetarian?: boolean;
+  vegan?: boolean;
+  glutenFree?: boolean;
+  dairyFree?: boolean;
+  veryHealthy?: boolean;
+  cheap?: boolean;
+  veryPopular?: boolean;
+  sustainable?: boolean;
+  lowFodmap?: boolean;
+  weightWatcherSmartPoints?: number;
+  gaps?: string;
+  preparationMinutes?: number;
+  cookingMinutes?: number;
+  aggregateLikes?: number;
+  healthScore?: number;
+  creditsText?: string;
+  license?: string;
+  sourceName?: string;
+  pricePerServing?: number;
+  extendedIngredients?: Array<{
+    id: number;
+    aisle: string;
+    image: string;
+    consistency: string;
+    name: string;
+    nameClean: string;
+    original: string;
+    originalName: string;
+    amount: number;
+    unit: string;
+    meta: string[];
+    measures: {
+      us: { amount: number; unitShort: string; unitLong: string };
+      metric: { amount: number; unitShort: string; unitLong: string };
+    };
+  }>;
+  summary?: string;
+  cuisines?: string[];
+  dishTypes?: string[];
+  diets?: string[];
+  occasions?: string[];
+  analyzedInstructions?: Array<{
+    name: string;
+    steps: Array<{
+      number: number;
+      step: string;
+      ingredients?: Array<{
+        id: number;
+        name: string;
+        localizedName: string;
+        image: string;
+      }>;
+      equipment?: Array<{
+        id: number;
+        name: string;
+        localizedName: string;
+        image: string;
+        temperature?: { number: number; unit: string };
+      }>;
+      length?: { number: number; unit: string };
+    }>;
+  }>;
+  spoonacularScore?: number;
+  spoonacularSourceUrl?: string;
+  usedIngredientCount?: number;
+  missedIngredientCount?: number;
+  likes?: number;
+  missedIngredients?: Array<{
+    id: number;
+    amount: number;
+    unit: string;
+    unitLong: string;
+    unitShort: string;
+    aisle: string;
+    name: string;
+    original: string;
+    originalName: string;
+    meta: string[];
+    extendedName?: string;
+    image: string;
+  }>;
+  usedIngredients?: Array<{
+    id: number;
+    amount: number;
+    unit: string;
+    unitLong: string;
+    unitShort: string;
+    aisle: string;
+    name: string;
+    original: string;
+    originalName: string;
+    meta: string[];
+    extendedName?: string;
+    image: string;
+  }>;
+  unusedIngredients?: Array<{
+    id: number;
+    amount: number;
+    unit: string;
+    unitLong: string;
+    unitShort: string;
+    aisle: string;
+    name: string;
+    original: string;
+    originalName: string;
+    meta: string[];
+    image: string;
+  }>;
+  nutrition?: {
+    nutrients: Array<{
+      name: string;
+      amount: number;
+      unit: string;
+    }>;
+  };
+}
+
+export const ingestRecipes = async (recipeData: {
+  results: SpoonacularRecipe[];
+  offset?: number;
+  number?: number;
+  totalResults?: number;
+}): Promise<{
+  message: string;
+  created: number;
+}> => {
+  const response = await apiClient.post("/api/v1/recipes/ingest", recipeData);
+  return response.data;
 };

@@ -36,6 +36,10 @@ class HealthArticle(Document):
     medical_condition_tags: List[str] = Field(default_factory=list)
     content: str = Field(..., min_length=10)
     
+    # Reference fields
+    official_sources: List[str] = Field(default_factory=list, description="List of official sources mentioned in the content")
+    learn_more_url: Optional[str] = Field(None, description="URL for additional information")
+    
     # Processing metadata
     source_pdf_id: Optional[str] = Field(None, description="Reference to source PDF document")
     chunk_id: Optional[str] = Field(None, description="Reference to source chunk")
@@ -79,6 +83,8 @@ class HealthArticleCreate(BaseModel):
     image_url: Optional[str] = None
     medical_condition_tags: List[str] = Field(default_factory=list)
     content: str = Field(..., min_length=10)
+    official_sources: List[str] = Field(default_factory=list)
+    learn_more_url: Optional[str] = None
     source_pdf_id: Optional[str] = None
     chunk_id: Optional[str] = None
 
@@ -90,6 +96,8 @@ class HealthArticleUpdate(BaseModel):
     image_url: Optional[str] = None
     medical_condition_tags: Optional[List[str]] = None
     content: Optional[str] = Field(None, min_length=10)
+    official_sources: Optional[List[str]] = None
+    learn_more_url: Optional[str] = None
     processing_status: Optional[ProcessingStatus] = None
     reviewer_notes: Optional[str] = None
 
@@ -102,6 +110,8 @@ class HealthArticleResponse(BaseModel):
     image_url: Optional[str]
     medical_condition_tags: List[str]
     content: str
+    official_sources: List[str]
+    learn_more_url: Optional[str]
     source_pdf_id: Optional[str]
     chunk_id: Optional[str]
     processing_status: ProcessingStatus

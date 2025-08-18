@@ -4,7 +4,7 @@ import os
 import uuid
 import aiofiles
 from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks, Query, Depends
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from typing import List, Optional
 import logging
 from datetime import datetime, timezone
@@ -200,6 +200,33 @@ async def delete_pdf(pdf_id: str):
         raise HTTPException(status_code=500, detail="Failed to delete PDF")
 
 
+@router.get("/{pdf_id}/download")
+async def download_pdf(pdf_id: str):
+    """Download a PDF file."""
+    
+    try:
+        pdf_doc = await PDFDocument.get(pdf_id)
+        if not pdf_doc:
+            raise HTTPException(status_code=404, detail="PDF not found")
+        
+        # Check if file exists
+        if not os.path.exists(pdf_doc.file_path):
+            raise HTTPException(status_code=404, detail="PDF file not found on disk")
+        
+        # Return the file for download
+        return FileResponse(
+            path=pdf_doc.file_path,
+            filename=pdf_doc.original_filename,
+            media_type="application/pdf"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error downloading PDF {pdf_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to download PDF")
+
+
 async def process_pdf_background(pdf_id: str):
     """Background task to process PDF and generate articles."""
     
@@ -296,6 +323,8 @@ async def process_pdf_background(pdf_id: str):
                     image_url=image_url,
                     medical_condition_tags=summarized_content.medical_condition_tags,
                     content=summarized_content.content,
+                    official_sources=summarized_content.official_sources,
+                    learn_more_url=summarized_content.learn_more_url,
                     source_pdf_id=pdf_id,
                     chunk_id=summarized_content.source_chunk_id
                 )
