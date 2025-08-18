@@ -47,10 +47,10 @@ class GeminiSummarizer:
         self.model = genai.GenerativeModel(
             model_name="gemini-1.5-flash",
             generation_config={
-                "temperature": 0.3,  # Lower temperature for more consistent output
-                "top_p": 0.8,
-                "top_k": 40,
-                "max_output_tokens": 1000,
+                "temperature": 0.2,  # Very low temperature for consistent, factual output
+                "top_p": 0.7,  # Reduced for more focused responses
+                "top_k": 20,   # Reduced for more deterministic output
+                "max_output_tokens": 1500,  # Increased for more detailed content
             },
             safety_settings={
                 HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
@@ -128,52 +128,73 @@ class GeminiSummarizer:
         suggested_category = self._suggest_category(chunk)
         
         prompt = f"""
-You are a health education expert who creates simple, easy-to-understand health articles for people with low literacy levels. Your goal is to transform medical content into clear, actionable information at a 6th-grade reading level.
+You are a medical education expert who transforms complex medical information into clear, evidence-based health articles. Your goal is to create educational content that is both scientifically accurate and accessible to people with limited health literacy.
+
+CRITICAL: This is EDUCATIONAL content, NOT promotional material. Focus on medical facts, not advertising.
 
 CONTENT TO SUMMARIZE:
 {chunk.content}
 
 INSTRUCTIONS:
-1. Create a clear, engaging title (maximum 8 words)
-2. Categorize the content using one of these categories: {', '.join([cat.value for cat in CategoryEnum])}
-3. Write the main content in simple language:
-   - Use short sentences (maximum 15 words each)
-   - Use common words instead of medical jargon
-   - Include practical tips when relevant
-   - Use bullet points or numbered lists for clarity
-   - Keep paragraphs short (2-3 sentences max)
-   - Target 6th-grade reading level
-4. Identify relevant medical condition tags
-5. Extract official sources/references if mentioned in the content:
-   - Look for organization names (CDC, WHO, Mayo Clinic, etc.)
-   - Look for website URLs or publication references
-   - Look for study citations or research mentions
-   - Look for official guidelines or recommendations
-6. Make sure the content is medically accurate but simplified
+1. Create a specific, informative title (maximum 10 words) that describes the medical topic
+2. Categorize using one of these: {', '.join([cat.value for cat in CategoryEnum])}
+3. Write substantive educational content that includes:
+   
+   MEDICAL INFORMATION (REQUIRED):
+   - What the condition/topic actually is (medical definition in simple terms)
+   - How it affects the body (mechanism/physiology simplified)
+   - Who is at risk or affected (demographics, risk factors)
+   - Key symptoms or signs to recognize
+   - Important numbers, statistics, or thresholds when relevant
+   
+   ACTIONABLE GUIDANCE:
+   - Specific, evidence-based prevention strategies
+   - Concrete treatment or management options
+   - When to seek medical care (red flags)
+   - Lifestyle modifications with specific details
+   - Questions to ask healthcare providers
+   
+   WRITING STYLE:
+   - Use 6th-grade reading level but include essential medical facts
+   - Replace jargon with simple explanations: "high blood sugar (glucose)" not just "high blood sugar"
+   - Use specific numbers: "150/90 or higher" not "high blood pressure"
+   - Include "why" explanations: "because this damages blood vessels"
+   - Structure with clear headers using bullet points
+
+4. Extract specific medical condition tags (be precise, not generic)
+5. Identify authoritative sources mentioned in the content
+6. Ensure medical accuracy while maintaining simplicity
+
+AVOID:
+- Generic promotional language ("We want to help you live healthier")
+- Vague statements ("eat healthy foods")
+- Contact information or website promotion
+- Doctor profiles or testimonials
+- Marketing content
 
 RESPONSE FORMAT (JSON):
 {{
-    "title": "Clear, simple title here",
-    "category": "One of the valid categories",
-    "content": "Easy-to-read article content with practical advice. Use simple words. Include what people can do to help themselves.",
-    "medical_condition_tags": ["tag1", "tag2", "tag3"],
-    "official_sources": ["CDC - Centers for Disease Control", "Mayo Clinic", "American Heart Association"],
-    "learn_more_url": "https://example.com/more-info",
+    "title": "Specific medical topic title",
+    "category": "Exact category match",
+    "content": "Educational article with medical facts, specific guidance, and clear explanations",
+    "medical_condition_tags": ["specific_condition", "related_symptom", "treatment_type"],
+    "official_sources": ["Medical organizations mentioned"],
+    "learn_more_url": "Relevant educational URL if mentioned",
     "confidence_score": 0.85
 }}
 
 EXAMPLE OUTPUT:
 {{
-    "title": "Lower Your Blood Pressure Naturally",
-    "category": "Hypertension",
-    "content": "High blood pressure means your blood pushes too hard on your blood vessels. This can hurt your heart and other organs.\\n\\nWhy it matters:\\n• It usually has no symptoms\\n• It can cause heart attacks and strokes\\n• It can damage your kidneys\\n\\nWhat you can do:\\n• Eat less salt\\n• Walk 30 minutes most days\\n• Maintain a healthy weight\\n• Take your medicine as prescribed\\n• Check your blood pressure regularly\\n\\nTalk to your doctor about the best plan for you.",
-    "medical_condition_tags": ["Hypertension", "Blood pressure"],
-    "official_sources": ["American Heart Association", "CDC - High Blood Pressure"],
-    "learn_more_url": "https://www.heart.org/en/health-topics/high-blood-pressure",
-    "confidence_score": 0.92
+    "title": "Type 2 Diabetes: Blood Sugar Control",
+    "category": "Diabetes",
+    "content": "Type 2 diabetes happens when your body cannot use insulin properly. Insulin helps sugar (glucose) get into your cells for energy.\\n\\nWhat happens in your body:\\n• Your blood sugar stays too high (over 126 mg/dL when fasting)\\n• Your pancreas makes insulin, but your cells resist it\\n• Over time, high blood sugar damages blood vessels and nerves\\n\\nWho gets Type 2 diabetes:\\n• People over 45 years old\\n• People with family history of diabetes\\n• People who are overweight (BMI over 25)\\n• People who are not physically active\\n\\nWarning signs to watch for:\\n• Feeling very thirsty or hungry\\n• Urinating more than usual\\n• Feeling tired all the time\\n• Blurred vision\\n• Cuts that heal slowly\\n\\nHow to manage blood sugar:\\n• Check blood sugar as directed (target: 80-130 mg/dL before meals)\\n• Take prescribed medications at the same time daily\\n• Eat measured portions: 1/2 plate vegetables, 1/4 plate protein, 1/4 plate whole grains\\n• Exercise 150 minutes per week (30 minutes, 5 days)\\n• Lose 5-10% of body weight if overweight\\n\\nCall your doctor if:\\n• Blood sugar is over 300 mg/dL\\n• You have ketones in urine\\n• You feel confused or very sick\\n• You have chest pain or trouble breathing",
+    "medical_condition_tags": ["Type 2 Diabetes", "Blood glucose", "Insulin resistance", "Diabetes management"],
+    "official_sources": ["American Diabetes Association", "CDC Diabetes Prevention Program"],
+    "learn_more_url": "https://www.diabetes.org/diabetes/type-2",
+    "confidence_score": 0.91
 }}
 
-Remember: Keep it simple, practical, and encouraging. Focus on what people can do to improve their health.
+FOCUS: Extract and preserve specific medical information from the source content. Transform complex medical concepts into understandable explanations while maintaining scientific accuracy.
 """
         
         return prompt
