@@ -171,6 +171,49 @@ async def list_pdfs(
         raise HTTPException(status_code=500, detail="Failed to list PDFs")
 
 
+@router.delete("/delete-all")
+async def delete_all_pdfs():
+    """Delete all PDF documents and their files (for cleanup purposes)."""
+    try:
+        # Get all PDFs
+        pdfs = await PDFDocument.find().to_list()
+        count_before = len(pdfs)
+        
+        logger.info(f"Deleting {count_before} PDF documents and their files")
+        
+        deleted_files = 0
+        failed_files = []
+        
+        # Delete files from file system
+        for pdf in pdfs:
+            if pdf.file_path and os.path.exists(pdf.file_path):
+                try:
+                    os.remove(pdf.file_path)
+                    deleted_files += 1
+                    logger.info(f"Deleted file: {pdf.file_path}")
+                except Exception as e:
+                    logger.error(f"Error deleting file {pdf.file_path}: {e}")
+                    failed_files.append(pdf.file_path)
+        
+        # Delete database records
+        result = await PDFDocument.delete_all()
+        
+        logger.info(f"Successfully deleted {result.deleted_count} PDF documents from database")
+        logger.info(f"Deleted {deleted_files} files from file system")
+        
+        return {
+            "message": "All PDF documents deleted successfully",
+            "deleted_count": result.deleted_count,
+            "count_before": count_before,
+            "files_deleted": deleted_files,
+            "failed_files": failed_files
+        }
+        
+    except Exception as e:
+        logger.error(f"Error deleting all PDFs: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete all PDFs")
+
+
 @router.delete("/{pdf_id}")
 async def delete_pdf(pdf_id: str):
     """Delete a PDF document and its associated data."""

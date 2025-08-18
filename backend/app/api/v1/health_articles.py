@@ -362,6 +362,30 @@ async def reject_article(article_id: str, reason: str = ""):
         raise HTTPException(status_code=500, detail="Failed to reject article") 
 
 
+@router.delete("/delete-all")
+async def delete_all_health_articles():
+    """Delete all health articles from the database (for cleanup purposes)."""
+    try:
+        # Get count before deletion
+        count_before = await HealthArticle.count()
+        logger.info(f"Deleting {count_before} health articles")
+        
+        # Delete all health articles
+        result = await HealthArticle.delete_all()
+        
+        logger.info(f"Successfully deleted {result.deleted_count} health articles")
+        
+        return {
+            "message": "All health articles deleted successfully",
+            "deleted_count": result.deleted_count,
+            "count_before": count_before
+        }
+        
+    except Exception as e:
+        logger.error(f"Error deleting all health articles: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete all health articles")
+
+
 @router.post("/upload-to-app-database")
 async def upload_articles_to_app_database(
     category: Optional[CategoryEnum] = None,
