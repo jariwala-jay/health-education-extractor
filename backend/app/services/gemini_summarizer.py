@@ -50,7 +50,7 @@ class GeminiSummarizer:
                 "temperature": 0.2,  # Very low temperature for consistent, factual output
                 "top_p": 0.7,  # Reduced for more focused responses
                 "top_k": 20,   # Reduced for more deterministic output
-                "max_output_tokens": 1500,  # Increased for more detailed content
+                "max_output_tokens": 800,  # Reduced for shorter, more concise content
             },
             safety_settings={
                 HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
@@ -138,28 +138,20 @@ CONTENT TO SUMMARIZE:
 INSTRUCTIONS:
 1. Create a specific, informative title (maximum 10 words) that describes the medical topic
 2. Categorize using one of these: {', '.join([cat.value for cat in CategoryEnum])}
-3. Write substantive educational content that includes:
+3. Write a natural, flowing educational article (150-250 words max):
    
-   MEDICAL INFORMATION (REQUIRED):
-   - What the condition/topic actually is (medical definition in simple terms)
-   - How it affects the body (mechanism/physiology simplified)
-   - Who is at risk or affected (demographics, risk factors)
-   - Key symptoms or signs to recognize
-   - Important numbers, statistics, or thresholds when relevant
-   
-   ACTIONABLE GUIDANCE:
-   - Specific, evidence-based prevention strategies
-   - Concrete treatment or management options
-   - When to seek medical care (red flags)
-   - Lifestyle modifications with specific details
-   - Questions to ask healthcare providers
+   CONTENT APPROACH:
+   - Start with what the condition/topic is in simple terms
+   - Naturally weave in the most important information people need to know
+   - Include practical advice that people can actually use
+   - Make it read like a helpful explanation, not a checklist
    
    WRITING STYLE:
-   - Use 6th-grade reading level but include essential medical facts
-   - Replace jargon with simple explanations: "high blood sugar (glucose)" not just "high blood sugar"
-   - Use specific numbers: "150/90 or higher" not "high blood pressure"
-   - Include "why" explanations: "because this damages blood vessels"
-   - Structure with clear headers using bullet points
+   - Write in a conversational, educational tone
+   - Use short paragraphs (2-3 sentences each)
+   - Use bullet points only when listing specific items (like symptoms)
+   - Focus on what matters most to the reader
+   - End with encouraging, actionable guidance
 
 4. Extract specific medical condition tags (be precise, not generic)
 5. Identify authoritative sources mentioned in the content
@@ -167,6 +159,8 @@ INSTRUCTIONS:
 
 AVOID:
 - Generic promotional language ("We want to help you live healthier")
+- Rigid Q&A format with headers like "Who is at risk?" or "When to see a doctor?"
+- Formulaic structure that feels like a checklist
 - Vague statements ("eat healthy foods")
 - Contact information or website promotion
 - Doctor profiles or testimonials
@@ -185,11 +179,11 @@ RESPONSE FORMAT (JSON):
 
 EXAMPLE OUTPUT:
 {{
-    "title": "Type 2 Diabetes: Blood Sugar Control",
+    "title": "Understanding Type 2 Diabetes",
     "category": "Diabetes",
-    "content": "Type 2 diabetes happens when your body cannot use insulin properly. Insulin helps sugar (glucose) get into your cells for energy.\\n\\nWhat happens in your body:\\n• Your blood sugar stays too high (over 126 mg/dL when fasting)\\n• Your pancreas makes insulin, but your cells resist it\\n• Over time, high blood sugar damages blood vessels and nerves\\n\\nWho gets Type 2 diabetes:\\n• People over 45 years old\\n• People with family history of diabetes\\n• People who are overweight (BMI over 25)\\n• People who are not physically active\\n\\nWarning signs to watch for:\\n• Feeling very thirsty or hungry\\n• Urinating more than usual\\n• Feeling tired all the time\\n• Blurred vision\\n• Cuts that heal slowly\\n\\nHow to manage blood sugar:\\n• Check blood sugar as directed (target: 80-130 mg/dL before meals)\\n• Take prescribed medications at the same time daily\\n• Eat measured portions: 1/2 plate vegetables, 1/4 plate protein, 1/4 plate whole grains\\n• Exercise 150 minutes per week (30 minutes, 5 days)\\n• Lose 5-10% of body weight if overweight\\n\\nCall your doctor if:\\n• Blood sugar is over 300 mg/dL\\n• You have ketones in urine\\n• You feel confused or very sick\\n• You have chest pain or trouble breathing",
-    "medical_condition_tags": ["Type 2 Diabetes", "Blood glucose", "Insulin resistance", "Diabetes management"],
-    "official_sources": ["American Diabetes Association", "CDC Diabetes Prevention Program"],
+    "content": "Type 2 diabetes happens when your body cannot use insulin properly to control blood sugar. This causes sugar to build up in your blood instead of going into your cells for energy.\\n\\nMany people don't know they have diabetes because it develops slowly. Common signs include feeling very thirsty, urinating more often, feeling tired, and having blurred vision. Cuts and bruises may also heal more slowly than usual.\\n\\nPeople over 45, those with family history of diabetes, and people who are overweight have higher risk. However, diabetes can affect anyone.\\n\\nThe good news is that small changes can make a big difference. Eating smaller portions, choosing whole foods over processed ones, and walking for 30 minutes most days can help control blood sugar. If you have diabetes, taking medications as prescribed is also important.\\n\\nIf your blood sugar is over 126 mg/dL when fasting, you may have diabetes. Early treatment can prevent serious problems like heart disease and kidney damage, so talk to your doctor about getting tested.",
+    "medical_condition_tags": ["Type 2 Diabetes", "Blood glucose", "Diabetes symptoms"],
+    "official_sources": ["American Diabetes Association"],
     "learn_more_url": "https://www.diabetes.org/diabetes/type-2",
     "confidence_score": 0.91
 }}
