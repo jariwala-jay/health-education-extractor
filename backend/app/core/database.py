@@ -8,6 +8,8 @@ from typing import Optional
 from app.config import settings
 from app.models.health_article import HealthArticle
 from app.models.pdf_document import PDFDocument
+from app.models.daily_tip import DailyTip
+from app.models.app_article import AppArticle
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +42,7 @@ async def init_database():
         # Initialize Beanie with document models
         await init_beanie(
             database=database,
-            document_models=[HealthArticle, PDFDocument]
+            document_models=[HealthArticle, PDFDocument, DailyTip, AppArticle]
         )
         
         logger.info("Beanie ODM initialized successfully")
