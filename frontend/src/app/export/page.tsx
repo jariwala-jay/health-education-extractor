@@ -4,24 +4,40 @@ import { useState, useEffect } from "react";
 import { ArrowDownTrayIcon } from "@heroicons/react/24/outline";
 import {
   uploadArticlesToAppDatabase,
+  uploadTipsToAppDatabase,
   getExportSummary,
+  getCombinedExportSummary,
   listPDFs,
   type ExportSummary,
+  type CombinedExportSummary,
   type PDFDocument,
   type UploadResult,
+  type TipsUploadResult,
 } from "@/lib/api";
 import { HEALTH_CATEGORIES } from "@/lib/constants";
 import toast from "react-hot-toast";
 
+const TIP_CATEGORIES = [
+  "Hypertension",
+  "Obesity", 
+  "Diabetes",
+  "Prediabetes",
+  "Nutrition",
+  "General"
+];
+
 export default function ExportPage() {
   const [loading, setLoading] = useState(false);
-  const [summary, setSummary] = useState<ExportSummary | null>(null);
+  const [summary, setSummary] = useState<CombinedExportSummary | null>(null);
   const [pdfs, setPdfs] = useState<PDFDocument[]>([]);
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
+  const [tipsUploadResult, setTipsUploadResult] = useState<TipsUploadResult | null>(null);
 
   // Upload filters
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedTipCategories, setSelectedTipCategories] = useState<string[]>([]);
   const [selectedPdfId, setSelectedPdfId] = useState<string>("");
+  const [exportType, setExportType] = useState<"articles" | "tips" | "both">("both");
 
   useEffect(() => {
     loadSummary();
@@ -40,7 +56,7 @@ export default function ExportPage() {
 
   const loadSummary = async () => {
     try {
-      const summaryData = await getExportSummary(selectedPdfId || undefined);
+      const summaryData = await getCombinedExportSummary(selectedPdfId || undefined);
       setSummary(summaryData);
     } catch (error) {
       console.error("Error loading summary:", error);
@@ -52,33 +68,57 @@ export default function ExportPage() {
     try {
       setLoading(true);
       setUploadResult(null);
+      setTipsUploadResult(null);
 
-      // Use the first selected category or undefined if none selected
-      const categoryFilter =
-        selectedCategories.length > 0 ? selectedCategories[0] : undefined;
       const pdfFilter = selectedPdfId || undefined;
+      let articlesResult: UploadResult | null = null;
+      let tipsResult: TipsUploadResult | null = null;
 
-      const result = await uploadArticlesToAppDatabase(
-        categoryFilter,
-        undefined, // tags - not implemented in UI yet
-        pdfFilter
-      );
-
-      setUploadResult(result);
-
-      if (result.uploaded_articles > 0) {
-        toast.success(
-          `Successfully uploaded ${result.uploaded_articles} articles to app database`
+      // Upload articles if selected
+      if (exportType === "articles" || exportType === "both") {
+        const categoryFilter = selectedCategories.length > 0 ? selectedCategories[0] : undefined;
+        articlesResult = await uploadArticlesToAppDatabase(
+          categoryFilter,
+          undefined, // tags - not implemented in UI yet
+          pdfFilter
         );
-      } else {
-        toast(result.message);
+        setUploadResult(articlesResult);
+      }
+
+      // Upload tips if selected
+      if (exportType === "tips" || exportType === "both") {
+        const tipCategoryFilter = selectedTipCategories.length > 0 ? selectedTipCategories[0] : undefined;
+        tipsResult = await uploadTipsToAppDatabase(
+          tipCategoryFilter,
+          undefined, // tags - not implemented in UI yet
+          pdfFilter
+        );
+        setTipsUploadResult(tipsResult);
+      }
+
+      // Show success messages
+      if (articlesResult && articlesResult.uploaded_articles > 0) {
+        toast.success(
+          `Successfully uploaded ${articlesResult.uploaded_articles} articles to app database`
+        );
+      }
+      
+      if (tipsResult && tipsResult.uploaded_tips > 0) {
+        toast.success(
+          `Successfully uploaded ${tipsResult.uploaded_tips} tips to app database`
+        );
+      }
+
+      if ((!articlesResult || articlesResult.uploaded_articles === 0) && 
+          (!tipsResult || tipsResult.uploaded_tips === 0)) {
+        toast("No items to upload");
       }
 
       // Refresh summary to show updated counts
       await loadSummary();
     } catch (error) {
-      console.error("Error uploading articles:", error);
-      toast.error("Failed to upload articles to app database");
+      console.error("Error uploading items:", error);
+      toast.error("Failed to upload items to app database");
     } finally {
       setLoading(false);
     }
@@ -92,15 +132,23 @@ export default function ExportPage() {
     );
   };
 
+  const handleTipCategoryToggle = (category: string) => {
+    setSelectedTipCategories((prev) =>
+      prev.includes(category)
+        ? prev.filter((c) => c !== category)
+        : [...prev, category]
+    );
+  };
+
   return (
     <div>
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:tracking-tight">
-          Upload Articles to App Database
+          Upload to App Database
         </h1>
         <p className="mt-2 text-sm text-gray-700">
-          Upload approved health education articles directly to the app database
+          Upload approved health education articles and daily tips directly to the app database
         </p>
       </div>
 
@@ -114,6 +162,32 @@ export default function ExportPage() {
               </h3>
 
               <div className="space-y-6">
+                {/* Export Type Selection */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Export Type
+                  </label>
+                  <div className="space-y-2">
+                    {[
+                      { value: "both", label: "Both Articles & Tips" },
+                      { value: "articles", label: "Articles Only" },
+                      { value: "tips", label: "Tips Only" }
+                    ].map((option) => (
+                      <label key={option.value} className="inline-flex items-center">
+                        <input
+                          type="radio"
+                          name="exportType"
+                          value={option.value}
+                          checked={exportType === option.value}
+                          onChange={(e) => setExportType(e.target.value as "articles" | "tips" | "both")}
+                          className="form-radio h-4 w-4 text-indigo-600"
+                        />
+                        <span className="ml-2 text-sm">{option.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
                 {/* Info about what gets uploaded */}
                 <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
                   <div className="flex">
@@ -123,7 +197,7 @@ export default function ExportPage() {
                       </h3>
                       <div className="mt-2 text-sm text-blue-700">
                         <p>
-                          Only approved articles that haven&apos;t been uploaded
+                          Only approved {exportType === "both" ? "articles and tips" : exportType === "articles" ? "articles" : "tips"} that haven&apos;t been uploaded
                           yet will be processed.
                         </p>
                       </div>
@@ -131,31 +205,61 @@ export default function ExportPage() {
                   </div>
                 </div>
 
-                {/* Category Filter */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Categories (optional)
-                  </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {HEALTH_CATEGORIES.map((category) => (
-                      <label
-                        key={category}
-                        className="inline-flex items-center"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedCategories.includes(category)}
-                          onChange={() => handleCategoryToggle(category)}
-                          className="form-checkbox h-4 w-4 text-indigo-600 transition duration-150 ease-in-out"
-                        />
-                        <span className="ml-2 text-sm">{category}</span>
-                      </label>
-                    ))}
+                {/* Article Category Filter */}
+                {(exportType === "articles" || exportType === "both") && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Article Categories (optional)
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {HEALTH_CATEGORIES.map((category) => (
+                        <label
+                          key={category}
+                          className="inline-flex items-center"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedCategories.includes(category)}
+                            onChange={() => handleCategoryToggle(category)}
+                            className="form-checkbox h-4 w-4 text-indigo-600 transition duration-150 ease-in-out"
+                          />
+                          <span className="ml-2 text-sm">{category}</span>
+                        </label>
+                      ))}
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Leave unchecked to include all article categories
+                    </p>
                   </div>
-                  <p className="mt-1 text-xs text-gray-500">
-                    Leave unchecked to include all categories
-                  </p>
-                </div>
+                )}
+
+                {/* Tip Category Filter */}
+                {(exportType === "tips" || exportType === "both") && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Tip Categories (optional)
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {TIP_CATEGORIES.map((category) => (
+                        <label
+                          key={category}
+                          className="inline-flex items-center"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedTipCategories.includes(category)}
+                            onChange={() => handleTipCategoryToggle(category)}
+                            className="form-checkbox h-4 w-4 text-indigo-600 transition duration-150 ease-in-out"
+                          />
+                          <span className="ml-2 text-sm">{category}</span>
+                        </label>
+                      ))}
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Leave unchecked to include all tip categories
+                    </p>
+                  </div>
+                )}
 
                 {/* PDF Filter */}
                 <div>
@@ -187,40 +291,76 @@ export default function ExportPage() {
                     className="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <ArrowDownTrayIcon className="h-4 w-4 mr-2" />
-                    {loading ? "Uploading..." : "Upload to App Database"}
+                    {loading ? "Uploading..." : `Upload ${exportType === "both" ? "Articles & Tips" : exportType === "articles" ? "Articles" : "Tips"} to App Database`}
                   </button>
                 </div>
 
-                {/* Upload Result */}
-                {uploadResult && (
-                  <div className="mt-6 p-4 bg-gray-50 rounded-md">
-                    <h4 className="text-sm font-medium text-gray-900 mb-2">
-                      Upload Result:
-                    </h4>
-                    <div className="text-sm text-gray-600 space-y-1">
-                      <p>
-                        • Total articles processed:{" "}
-                        {uploadResult.total_articles}
-                      </p>
-                      <p>
-                        • Successfully uploaded:{" "}
-                        {uploadResult.uploaded_articles}
-                      </p>
-                      <p>• Failed: {uploadResult.failed_articles}</p>
-                      {uploadResult.failed_details &&
-                        uploadResult.failed_details.length > 0 && (
-                          <div className="mt-2">
-                            <p className="font-medium">Failed articles:</p>
-                            {uploadResult.failed_details.map(
-                              (failed, index) => (
-                                <p key={index} className="ml-2 text-red-600">
-                                  • {failed.title}: {failed.reason}
-                                </p>
-                              )
+                {/* Upload Results */}
+                {(uploadResult || tipsUploadResult) && (
+                  <div className="mt-6 space-y-4">
+                    {uploadResult && (
+                      <div className="p-4 bg-gray-50 rounded-md">
+                        <h4 className="text-sm font-medium text-gray-900 mb-2">
+                          Articles Upload Result:
+                        </h4>
+                        <div className="text-sm text-gray-600 space-y-1">
+                          <p>
+                            • Total articles processed:{" "}
+                            {uploadResult.total_articles}
+                          </p>
+                          <p>
+                            • Successfully uploaded:{" "}
+                            {uploadResult.uploaded_articles}
+                          </p>
+                          <p>• Failed: {uploadResult.failed_articles}</p>
+                          {uploadResult.failed_details &&
+                            uploadResult.failed_details.length > 0 && (
+                              <div className="mt-2">
+                                <p className="font-medium">Failed articles:</p>
+                                {uploadResult.failed_details.map(
+                                  (failed, index) => (
+                                    <p key={index} className="ml-2 text-red-600">
+                                      • {failed.title}: {failed.reason}
+                                    </p>
+                                  )
+                                )}
+                              </div>
                             )}
-                          </div>
-                        )}
-                    </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {tipsUploadResult && (
+                      <div className="p-4 bg-gray-50 rounded-md">
+                        <h4 className="text-sm font-medium text-gray-900 mb-2">
+                          Tips Upload Result:
+                        </h4>
+                        <div className="text-sm text-gray-600 space-y-1">
+                          <p>
+                            • Total tips processed:{" "}
+                            {tipsUploadResult.total_tips}
+                          </p>
+                          <p>
+                            • Successfully uploaded:{" "}
+                            {tipsUploadResult.uploaded_tips}
+                          </p>
+                          <p>• Failed: {tipsUploadResult.failed_tips}</p>
+                          {tipsUploadResult.failed_details &&
+                            tipsUploadResult.failed_details.length > 0 && (
+                              <div className="mt-2">
+                                <p className="font-medium">Failed tips:</p>
+                                {tipsUploadResult.failed_details.map(
+                                  (failed, index) => (
+                                    <p key={index} className="ml-2 text-red-600">
+                                      • {failed.tip_text}: {failed.reason}
+                                    </p>
+                                  )
+                                )}
+                              </div>
+                            )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -245,63 +385,68 @@ export default function ExportPage() {
               </div>
 
               {summary ? (
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-500">
-                      Total Articles:
-                    </span>
-                    <span className="text-sm font-medium">
-                      {summary.total_articles}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-500">
-                      Ready to Upload:
-                    </span>
-                    <span className="text-sm font-medium text-blue-600">
-                      {summary.ready_to_upload || 0}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-500">
-                      Already Uploaded:
-                    </span>
-                    <span className="text-sm font-medium text-green-600">
-                      {summary.status_breakdown.uploaded || 0}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-500">Approved:</span>
-                    <span className="text-sm font-medium text-yellow-600">
-                      {summary.status_breakdown.approved || 0}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-500">Categories:</span>
-                    <span className="text-sm font-medium">
-                      {Object.keys(summary.category_breakdown).length}
-                    </span>
+                <div className="space-y-4">
+                  {/* Combined Summary */}
+                  <div className="bg-gray-50 p-3 rounded-md">
+                    <h4 className="text-sm font-medium text-gray-900 mb-2">Combined</h4>
+                    <div className="space-y-1">
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-500">Total Items:</span>
+                        <span className="text-sm font-medium">{summary.combined.total_items}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-500">Ready to Upload:</span>
+                        <span className="text-sm font-medium text-blue-600">{summary.combined.ready_to_upload}</span>
+                      </div>
+                    </div>
                   </div>
 
-                  {summary.category_breakdown && (
-                    <div className="pt-3 border-t border-gray-200">
-                      <p className="text-xs text-gray-500 mb-2">By Category:</p>
+                  {/* Articles Summary */}
+                  {(exportType === "articles" || exportType === "both") && (
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-900 mb-2">Articles</h4>
                       <div className="space-y-1">
-                        {Object.entries(summary.category_breakdown).map(
-                          ([category, count]) => (
-                            <div
-                              key={category}
-                              className="flex justify-between"
-                            >
-                              <span className="text-xs text-gray-600">
-                                {category}:
-                              </span>
-                              <span className="text-xs font-medium">
-                                {count}
-                              </span>
-                            </div>
-                          )
-                        )}
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-500">Total:</span>
+                          <span className="text-sm font-medium">{summary.articles.total}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-500">Ready:</span>
+                          <span className="text-sm font-medium text-blue-600">{summary.articles.ready_to_upload}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-500">Uploaded:</span>
+                          <span className="text-sm font-medium text-green-600">{summary.articles.status_breakdown.uploaded || 0}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-500">Approved:</span>
+                          <span className="text-sm font-medium text-yellow-600">{summary.articles.status_breakdown.approved || 0}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tips Summary */}
+                  {(exportType === "tips" || exportType === "both") && (
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-900 mb-2">Tips</h4>
+                      <div className="space-y-1">
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-500">Total:</span>
+                          <span className="text-sm font-medium">{summary.tips.total}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-500">Ready:</span>
+                          <span className="text-sm font-medium text-blue-600">{summary.tips.ready_to_upload}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-500">Uploaded:</span>
+                          <span className="text-sm font-medium text-green-600">{summary.tips.status_breakdown.uploaded || 0}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-500">Approved:</span>
+                          <span className="text-sm font-medium text-yellow-600">{summary.tips.status_breakdown.approved || 0}</span>
+                        </div>
                       </div>
                     </div>
                   )}
