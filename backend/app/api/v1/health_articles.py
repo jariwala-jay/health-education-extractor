@@ -18,6 +18,7 @@ from app.models.health_article import (
 )
 from app.services.app_database_uploader import app_uploader
 from app.core.auth_middleware import get_current_active_user
+from app.models.daily_tip import DailyTip, TipProcessingStatus, TipCategory
 from app.models.auth import User
 
 logger = logging.getLogger(__name__)
@@ -60,6 +61,203 @@ async def create_article(article_data: HealthArticleCreate):
     except Exception as e:
         logger.error(f"Error creating article: {e}")
         raise HTTPException(status_code=500, detail="Failed to create article")
+
+
+@router.get("/export/summary")
+async def get_export_summary(
+    source_pdf_id: Optional[str] = Query(None, description="Filter summary by source PDF ID")
+):
+    """Get summary statistics for export."""
+    
+    try:
+        # Base query filter
+        base_filter = {}
+        if source_pdf_id:
+            base_filter["source_pdf_id"] = source_pdf_id
+        
+        # Get counts by status
+        status_counts = {}
+        for status in ProcessingStatus:
+            query_filter = {**base_filter, "processing_status": status}
+            count = await HealthArticle.find(query_filter).count()
+            status_counts[status.value] = count
+        
+        # Get counts by category
+        category_counts = {}
+        for category in CategoryEnum:
+            query_filter = {**base_filter, "category": category}
+            count = await HealthArticle.find(query_filter).count()
+            category_counts[category.value] = count
+        
+        # Get total articles
+        total_articles = await HealthArticle.find(base_filter).count()
+        
+        # Get count of articles ready to upload (approved but not uploaded)
+        ready_to_upload = await HealthArticle.find({
+            **base_filter,
+            "processing_status": ProcessingStatus.APPROVED,
+            "app_article_id": None
+        }).count()
+        
+        # Get recent articles
+        recent_articles = await HealthArticle.find(base_filter).sort(-HealthArticle.created_at).limit(5).to_list()
+        
+        summary = {
+            "total_articles": total_articles,
+            "ready_to_upload": ready_to_upload,
+            "status_breakdown": status_counts,
+            "category_breakdown": category_counts,
+            "source_pdf_id": source_pdf_id,
+            "recent_articles": [
+                {
+                    "id": str(article.id),
+                    "title": article.title,
+                    "category": article.category,
+                    "status": article.processing_status,
+                    "source_pdf_id": article.source_pdf_id,
+                    "created_at": article.created_at.isoformat()
+                }
+                for article in recent_articles
+            ]
+        }
+        
+        return summary
+        
+    except Exception as e:
+        logger.error(f"Error getting export summary: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get export summary")
+
+
+@router.get("/export-summary-combined")
+async def get_combined_export_summary(
+    source_pdf_id: Optional[str] = Query(None, description="Filter by source PDF ID")
+):
+    """Get combined export summary for both articles and tips."""
+    
+    try:
+        logger.info(f"Getting combined export summary for source_pdf_id: {source_pdf_id}")
+        
+        # Get article counts by status
+        article_status_counts = {}
+        for status in ProcessingStatus:
+            try:
+                count = await HealthArticle.find({"processing_status": status.value}).count()
+                article_status_counts[status.value] = count
+                logger.debug(f"Article count for {status.value}: {count}")
+            except Exception as e:
+                logger.error(f"Error getting article count for {status.value}: {e}")
+                article_status_counts[status.value] = 0
+        
+        # Get tip counts by status
+        tip_status_counts = {}
+        for status in TipProcessingStatus:
+            try:
+                count = await DailyTip.find({"processing_status": status.value}).count()
+                tip_status_counts[status.value] = count
+                logger.debug(f"Tip count for {status.value}: {count}")
+            except Exception as e:
+                logger.error(f"Error getting tip count for {status.value}: {e}")
+                tip_status_counts[status.value] = 0
+        
+        # Get total counts
+        try:
+            total_articles = await HealthArticle.find().count()
+            logger.debug(f"Total articles: {total_articles}")
+        except Exception as e:
+            logger.error(f"Error getting total articles: {e}")
+            total_articles = 0
+            
+        try:
+            total_tips = await DailyTip.find().count()
+            logger.debug(f"Total tips: {total_tips}")
+        except Exception as e:
+            logger.error(f"Error getting total tips: {e}")
+            total_tips = 0
+        
+        # Get ready to upload counts
+        try:
+            articles_ready_to_upload = await HealthArticle.find({
+                "processing_status": ProcessingStatus.APPROVED.value,
+                "app_article_id": None
+            }).count()
+            logger.debug(f"Articles ready to upload: {articles_ready_to_upload}")
+        except Exception as e:
+            logger.error(f"Error getting articles ready to upload: {e}")
+            articles_ready_to_upload = 0
+            
+        try:
+            tips_ready_to_upload = await DailyTip.find({
+                "processing_status": TipProcessingStatus.APPROVED.value,
+                "app_tip_id": None
+            }).count()
+            logger.debug(f"Tips ready to upload: {tips_ready_to_upload}")
+        except Exception as e:
+            logger.error(f"Error getting tips ready to upload: {e}")
+            tips_ready_to_upload = 0
+        
+        # Get recent items
+        try:
+            recent_articles = await HealthArticle.find().sort(-HealthArticle.created_at).limit(3).to_list()
+            logger.debug(f"Recent articles: {len(recent_articles)}")
+        except Exception as e:
+            logger.error(f"Error getting recent articles: {e}")
+            recent_articles = []
+            
+        try:
+            recent_tips = await DailyTip.find().sort(-DailyTip.created_at).limit(3).to_list()
+            logger.debug(f"Recent tips: {len(recent_tips)}")
+        except Exception as e:
+            logger.error(f"Error getting recent tips: {e}")
+            recent_tips = []
+        
+        summary = {
+            "articles": {
+                "total": total_articles,
+                "ready_to_upload": articles_ready_to_upload,
+                "status_breakdown": article_status_counts,
+                "category_breakdown": {},  # Simplified for now
+                "recent": [
+                    {
+                        "id": str(article.id),
+                        "title": article.title,
+                        "category": article.category.value,
+                        "processing_status": article.processing_status.value,
+                        "source_pdf_id": article.source_pdf_id,
+                        "created_at": article.created_at.isoformat()
+                    }
+                    for article in recent_articles
+                ]
+            },
+            "tips": {
+                "total": total_tips,
+                "ready_to_upload": tips_ready_to_upload,
+                "status_breakdown": tip_status_counts,
+                "category_breakdown": {},  # Simplified for now
+                "recent": [
+                    {
+                        "id": str(tip.id),
+                        "tip_text": tip.tip_text[:100] + "..." if len(tip.tip_text) > 100 else tip.tip_text,
+                        "category": tip.category.value,
+                        "processing_status": tip.processing_status.value,
+                        "source_article_id": tip.source_article_id,
+                        "created_at": tip.created_at.isoformat()
+                    }
+                    for tip in recent_tips
+                ]
+            },
+            "combined": {
+                "total_items": total_articles + total_tips,
+                "ready_to_upload": articles_ready_to_upload + tips_ready_to_upload,
+                "total_articles": total_articles,
+                "total_tips": total_tips
+            }
+        }
+        
+        return summary
+        
+    except Exception as e:
+        logger.error(f"Error getting combined export summary: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get combined export summary")
 
 
 @router.get("/{article_id}", response_model=HealthArticleResponse)
@@ -555,66 +753,3 @@ async def get_articles_by_pdf(
         raise HTTPException(status_code=500, detail="Failed to get articles")
 
 
-@router.get("/export/summary")
-async def get_export_summary(
-    source_pdf_id: Optional[str] = Query(None, description="Filter summary by source PDF ID")
-):
-    """Get summary statistics for export."""
-    
-    try:
-        # Base query filter
-        base_filter = {}
-        if source_pdf_id:
-            base_filter["source_pdf_id"] = source_pdf_id
-        
-        # Get counts by status
-        status_counts = {}
-        for status in ProcessingStatus:
-            query_filter = {**base_filter, "processing_status": status}
-            count = await HealthArticle.find(query_filter).count()
-            status_counts[status.value] = count
-        
-        # Get counts by category
-        category_counts = {}
-        for category in CategoryEnum:
-            query_filter = {**base_filter, "category": category}
-            count = await HealthArticle.find(query_filter).count()
-            category_counts[category.value] = count
-        
-        # Get total articles
-        total_articles = await HealthArticle.find(base_filter).count()
-        
-        # Get count of articles ready to upload (approved but not uploaded)
-        ready_to_upload = await HealthArticle.find({
-            **base_filter,
-            "processing_status": ProcessingStatus.APPROVED,
-            "app_article_id": None
-        }).count()
-        
-        # Get recent articles
-        recent_articles = await HealthArticle.find(base_filter).sort(-HealthArticle.created_at).limit(5).to_list()
-        
-        summary = {
-            "total_articles": total_articles,
-            "ready_to_upload": ready_to_upload,
-            "status_breakdown": status_counts,
-            "category_breakdown": category_counts,
-            "source_pdf_id": source_pdf_id,
-            "recent_articles": [
-                {
-                    "id": str(article.id),
-                    "title": article.title,
-                    "category": article.category,
-                    "status": article.processing_status,
-                    "source_pdf_id": article.source_pdf_id,
-                    "created_at": article.created_at.isoformat()
-                }
-                for article in recent_articles
-            ]
-        }
-        
-        return summary
-        
-    except Exception as e:
-        logger.error(f"Error getting export summary: {e}")
-        raise HTTPException(status_code=500, detail="Failed to get export summary") 
