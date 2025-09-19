@@ -24,7 +24,7 @@ class DuplicateDetector:
             similarity_threshold: Threshold for considering articles as duplicates
         """
         # Lower the default threshold to catch more similar content
-        self.similarity_threshold = similarity_threshold or max(0.65, settings.similarity_threshold * 0.75)
+        self.similarity_threshold = similarity_threshold or max(0.55, settings.similarity_threshold * 0.65)
         
         # Title similarity threshold (more strict for titles)
         self.title_similarity_threshold = 0.8

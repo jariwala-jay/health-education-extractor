@@ -7,7 +7,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from app.config import settings
-from app.api.v1 import pdf_processing, health_articles, auth
+from app.api.v1 import pdf_processing, health_articles, auth, daily_tips
 from app.core.database import init_database, close_database
 from app.services.app_database_uploader import app_uploader
 
@@ -86,6 +86,12 @@ app.include_router(
     health_articles.router,
     prefix="/api/v1/articles",
     tags=["Health Articles"]
+)
+
+app.include_router(
+    daily_tips.router,
+    prefix="/api/v1/tips",
+    tags=["Daily Tips"]
 )
 
 

@@ -18,6 +18,8 @@ from app.models.pdf_document import (
     PDFProcessingStatus
 )
 from app.core.auth_middleware import get_current_active_user
+from app.models.daily_tip import TipCategory
+from app.services.gemini_summarizer import SummarizedContent
 
 logger = logging.getLogger(__name__)
 
@@ -288,6 +290,7 @@ async def process_pdf_background(pdf_id: str):
         from app.services.image_matcher import UnsplashImageMatcher
         from app.services.duplicate_detector import DuplicateDetector
         from app.models.health_article import HealthArticle, HealthArticleCreate
+        from app.models.daily_tip import DailyTip, DailyTipCreate, TipCategory
         
         pdf_parser = PDFParser()
         chunker = ContentChunker()
@@ -328,7 +331,46 @@ async def process_pdf_background(pdf_id: str):
         pdf_doc.processing_status = PDFProcessingStatus.PROCESSING
         await pdf_doc.save()
         
-        summarized_contents = await summarizer.batch_summarize_chunks(chunks)
+        # Use new summarization approach based on configuration
+        if settings.summarization_mode == "map_reduce":
+            # Use map-reduce for better quality, but process chunks in groups to get multiple articles
+            logger.info(f"Using map_reduce mode for document summarization")
+            
+            # Process chunks in groups to generate multiple articles
+            chunk_groups = []
+            group_size = max(3, len(chunks) // 5)  # Aim for 5 groups, minimum 3 chunks per group
+            
+            for i in range(0, len(chunks), group_size):
+                group = chunks[i:i + group_size]
+                if group:  # Only add non-empty groups
+                    chunk_groups.append(group)
+            
+            logger.info(f"Processing {len(chunk_groups)} chunk groups for map_reduce")
+            
+            summarized_contents = []
+            for i, group in enumerate(chunk_groups):
+                logger.info(f"Processing group {i+1}/{len(chunk_groups)} with {len(group)} chunks")
+                summarized_content = await summarizer.summarize_document(group)
+                if summarized_content:
+                    summarized_contents.append(summarized_content)
+            
+            logger.info(f"Map_reduce generated {len(summarized_contents)} articles from {len(chunk_groups)} groups")
+            
+        elif settings.summarization_mode == "full":
+            # Use full document summarization (single article)
+            logger.info(f"Using full mode for document summarization")
+            summarized_content = await summarizer.summarize_document(chunks)
+            summarized_contents = [summarized_content] if summarized_content else []
+            logger.info(f"Full document summarization result: {len(summarized_contents)} articles")
+        else:
+            # Use chunk-level summarization with diversity filtering
+            logger.info(f"Using chunk mode for document summarization")
+            all_summarized_contents = await summarizer.batch_summarize_chunks(chunks)
+            logger.info(f"Batch summarization generated {len(all_summarized_contents)} articles")
+            
+            # Apply diversity filtering to reduce similar articles
+            summarized_contents = await _filter_diverse_articles(all_summarized_contents)
+            logger.info(f"After diversity filtering: {len(summarized_contents)} articles")
         
         if not summarized_contents:
             logger.warning(f"No articles generated for PDF {pdf_id}")
@@ -376,6 +418,45 @@ async def process_pdf_background(pdf_id: str):
                 article = HealthArticle(**article_data.dict())
                 article.reading_level_score = summarized_content.reading_level_score
                 await article.insert()
+                
+                # Generate tips for this article
+                try:
+                    tips = await summarizer.generate_tips(
+                        summarized_content.content, 
+                        summarized_content.medical_condition_tags
+                    )
+                    
+                    # Save tips to database with images
+                    for tip_text in tips:
+                        # Find matching image for the tip
+                        tip_image_result = await image_matcher.find_image_for_article(
+                            tip_text,  # Use tip text as search query
+                            summarized_content.category,
+                            summarized_content.medical_condition_tags
+                        )
+                        
+                        tip_image_url = tip_image_result.url if tip_image_result else None
+                        
+                        # Calculate reading level for tip
+                        tip_reading_level = summarizer._estimate_reading_level(tip_text)
+                        
+                        tip_data = DailyTipCreate(
+                            tip_text=tip_text,
+                            category=_map_article_category_to_tip_category(summarized_content.category),
+                            tags=summarized_content.medical_condition_tags,
+                            source_article_id=str(article.id),
+                            image_url=tip_image_url
+                        )
+                        tip = DailyTip(**tip_data.model_dump())
+                        tip.reading_level_score = tip_reading_level
+                        await tip.insert()
+                        logger.info(f"Created tip with image: {tip_text[:50]}...")
+                    
+                    # Store tips in summarized content for potential future use
+                    summarized_content.tips = tips
+                    
+                except Exception as e:
+                    logger.error(f"Error generating tips for article {article.id}: {e}")
                 
                 created_articles.append(str(article.id))
                 logger.info(f"Created article: {article.title} (ID: {article.id})")
@@ -426,4 +507,84 @@ async def process_pdf_background(pdf_id: str):
 
 
 # Import datetime for background task
-from datetime import datetime 
+from datetime import datetime
+
+
+async def _filter_diverse_articles(summarized_contents: List[SummarizedContent]) -> List[SummarizedContent]:
+    """Filter articles to ensure diversity and limit quantity."""
+    if not summarized_contents:
+        return []
+    
+    # If we have fewer articles than the limit, return all
+    if len(summarized_contents) <= settings.max_articles_per_pdf:
+        return summarized_contents
+    
+    # Sort by confidence score and content length (prefer comprehensive articles)
+    sorted_contents = sorted(
+        summarized_contents, 
+        key=lambda x: (x.confidence_score or 0.5) * len(x.content), 
+        reverse=True
+    )
+    
+    # Select diverse articles
+    selected = []
+    used_titles = set()
+    
+    for content in sorted_contents:
+        if len(selected) >= settings.max_articles_per_pdf:
+            break
+        
+        # Check if this article is too similar to already selected ones
+        is_similar = False
+        for selected_content in selected:
+            if _are_articles_similar(content, selected_content):
+                is_similar = True
+                break
+        
+        # Check for title similarity
+        title_lower = content.title.lower()
+        if any(title_lower in used_title or used_title in title_lower 
+               for used_title in used_titles):
+            is_similar = True
+        
+        if not is_similar:
+            selected.append(content)
+            used_titles.add(title_lower)
+    
+    logger.info(f"Filtered {len(summarized_contents)} articles down to {len(selected)} diverse articles")
+    return selected
+
+
+def _map_article_category_to_tip_category(article_category: str) -> TipCategory:
+    """Map article category to appropriate tip category."""
+    category_mapping = {
+        "Hypertension": TipCategory.HYPERTENSION,
+        "Diabetes": TipCategory.DIABETES,
+        "Nutrition": TipCategory.NUTRITION,
+        "Physical Activity": TipCategory.GENERAL,
+        "Obesity": TipCategory.OBESITY,
+        "General Health": TipCategory.GENERAL
+    }
+    
+    return category_mapping.get(article_category, TipCategory.GENERAL)
+
+
+def _are_articles_similar(article1: SummarizedContent, article2: SummarizedContent) -> bool:
+    """Check if two articles are similar based on content and tags."""
+    # Check tag overlap
+    tags1 = set(tag.lower() for tag in article1.medical_condition_tags)
+    tags2 = set(tag.lower() for tag in article2.medical_condition_tags)
+    common_tags = tags1.intersection(tags2)
+    
+    if len(common_tags) > 0 and len(common_tags) / max(len(tags1), len(tags2)) > 0.8:
+        return True
+    
+    # Check content similarity (simple word overlap)
+    content1 = set(article1.content.lower().split())
+    content2 = set(article2.content.lower().split())
+    common_words = content1.intersection(content2)
+    
+    if len(common_words) > 0 and len(common_words) / max(len(content1), len(content2)) > 0.5:
+        return True
+    
+    return False 

@@ -10,6 +10,7 @@ import {
   DocumentArrowDownIcon,
   XMarkIcon,
   ArrowRightOnRectangleIcon,
+  LightBulbIcon,
 } from "@heroicons/react/24/outline";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -21,6 +22,7 @@ const navigation = [
   { name: "Dashboard", href: "/", icon: HomeIcon },
   { name: "Upload PDF", href: "/upload", icon: CloudArrowUpIcon },
   { name: "Articles", href: "/articles", icon: DocumentTextIcon },
+  { name: "Daily Tips", href: "/tips", icon: LightBulbIcon },
   { name: "Export", href: "/export", icon: DocumentArrowDownIcon },
 ];
 

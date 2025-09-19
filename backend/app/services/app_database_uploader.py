@@ -166,6 +166,45 @@ class AppDatabaseUploader:
         except Exception as e:
             logger.error(f"Failed to delete article from app database: {e}")
             return False
+    
+    async def upload_tip(self, daily_tip) -> Optional[str]:
+        """
+        Upload a daily tip to the app database.
+        
+        Args:
+            daily_tip: The DailyTip object to upload
+            
+        Returns:
+            The ID of the created tip in the app database, or None if failed
+        """
+        if not self._initialized:
+            await self.init_app_database()
+        
+        try:
+            # Create tip data in the format expected by the app
+            tip_data = {
+                "id": str(daily_tip.id),
+                "title": daily_tip.tip_text[:100],  # Use first 100 chars as title
+                "description": daily_tip.tip_text,
+                "category": daily_tip.category.value,
+                "imageUrl": daily_tip.image_url or "",
+                "lastShownToUsers": {},
+                "viewCountByUser": {}
+            }
+            
+            # Insert into the tips collection
+            result = await self.app_database.tips.insert_one(tip_data)
+            
+            if result.inserted_id:
+                logger.info(f"Successfully uploaded tip to app database: {daily_tip.tip_text[:50]}... (App ID: {result.inserted_id})")
+                return str(result.inserted_id)
+            else:
+                logger.error("Failed to upload tip to app database: No inserted ID returned")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Failed to upload tip to app database: {e}")
+            return None
 
 
 # Global instance

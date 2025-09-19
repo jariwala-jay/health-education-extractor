@@ -38,6 +38,12 @@ class Settings(BaseSettings):
     max_images_per_article: int = 1
     reading_level_target: int = 6
     
+    # Summarization Settings
+    summarization_mode: str = "chunk"  # chunk, map_reduce, full
+    chunk_overlap_words: int = 25  # Reduced overlap to minimize duplication
+    max_chunk_size_words: int = 300  # Smaller chunks for more focused content
+    max_articles_per_pdf: int = 25  # Limit articles per PDF to prevent overwhelming output
+    
     # Server Configuration
     host: str = "0.0.0.0"
     port: int = 8000
