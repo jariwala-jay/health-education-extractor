@@ -109,6 +109,59 @@ export interface UploadResult {
   }>;
 }
 
+export interface CombinedExportSummary {
+  articles: {
+    total: number;
+    ready_to_upload: number;
+    status_breakdown: Record<string, number>;
+    category_breakdown: Record<string, number>;
+    recent: Array<{
+      id: string;
+      title: string;
+      category: string;
+      processing_status: string;
+      source_pdf_id?: string;
+      created_at: string;
+    }>;
+  };
+  tips: {
+    total: number;
+    ready_to_upload: number;
+    status_breakdown: Record<string, number>;
+    category_breakdown: Record<string, number>;
+    recent: Array<{
+      id: string;
+      tip_text: string;
+      category: string;
+      processing_status: string;
+      source_article_id?: string;
+      created_at: string;
+    }>;
+  };
+  combined: {
+    total_items: number;
+    ready_to_upload: number;
+    total_articles: number;
+    total_tips: number;
+  };
+}
+
+export interface TipsUploadResult {
+  message: string;
+  total_tips: number;
+  uploaded_tips: number;
+  failed_tips: number;
+  filters_applied: {
+    category?: string;
+    tags?: string[];
+    source_pdf_id?: string;
+  };
+  failed_details?: Array<{
+    tip_text: string;
+    reason: string;
+  }>;
+}
+
 // API Functions
 
 // Health Check
@@ -278,6 +331,37 @@ export const getExportSummary = async (
 
   const response = await apiClient.get(
     `/api/v1/articles/export/summary?${params.toString()}`
+  );
+  return response.data;
+};
+
+// Combined export functions
+export const getCombinedExportSummary = async (
+  sourcePdfId?: string
+): Promise<CombinedExportSummary> => {
+  const params = new URLSearchParams();
+  if (sourcePdfId) params.append("source_pdf_id", sourcePdfId);
+
+  const response = await apiClient.get(
+    `/api/v1/articles/export-summary-combined?${params.toString()}`
+  );
+  return response.data;
+};
+
+export const uploadTipsToAppDatabase = async (
+  category?: string,
+  tags?: string[],
+  sourcePdfId?: string
+): Promise<TipsUploadResult> => {
+  const params = new URLSearchParams();
+  if (category) params.append("category", category);
+  if (tags && tags.length > 0) {
+    tags.forEach((tag) => params.append("tags", tag));
+  }
+  if (sourcePdfId) params.append("source_pdf_id", sourcePdfId);
+
+  const response = await apiClient.post(
+    `/api/v1/tips/upload-to-app-database?${params.toString()}`
   );
   return response.data;
 };
