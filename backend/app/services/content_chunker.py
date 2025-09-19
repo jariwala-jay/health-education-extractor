@@ -22,24 +22,29 @@ class ContentChunk:
     relevance_score: Optional[float] = None
     chunk_type: str = "text"  # text, header, list, table
     medical_keywords: List[str] = None
+    target_keywords: List[str] = None
     
     def __post_init__(self):
         if self.medical_keywords is None:
             self.medical_keywords = []
+        if self.target_keywords is None:
+            self.target_keywords = []
 
 
 class ContentChunker:
     """Service for chunking PDF content into logical units."""
     
-    def __init__(self, target_chunk_size: int = None):
+    def __init__(self, target_chunk_size: int = None, chunk_overlap: int = None):
         """Initialize content chunker.
         
         Args:
             target_chunk_size: Target word count per chunk (defaults to config setting)
+            chunk_overlap: Overlap between chunks in words (defaults to config setting)
         """
         self.target_chunk_size = target_chunk_size or settings.chunk_size_words
+        self.chunk_overlap = chunk_overlap or settings.chunk_overlap_words
         self.min_chunk_size = max(50, self.target_chunk_size // 4)  # Minimum 50 words
-        self.max_chunk_size = self.target_chunk_size * 2  # Allow up to 2x target size
+        self.max_chunk_size = settings.max_chunk_size_words  # Use config max size
         
         # Health-related keywords for relevance scoring
         self.health_keywords = {
@@ -204,11 +209,11 @@ class ContentChunker:
         return ' '.join(cleaned_lines)
     
     def _split_into_paragraphs(self, text: str) -> List[str]:
-        """Split text into logical paragraphs."""
+        """Split text into logical paragraphs with better semantic grouping."""
         # Split on double newlines first
         paragraphs = re.split(r'\n\s*\n', text)
         
-        # Further split very long paragraphs
+        # Further split very long paragraphs and group related content
         final_paragraphs = []
         for para in paragraphs:
             para = para.strip()
@@ -225,7 +230,10 @@ class ContentChunker:
                 for sentence in sentences:
                     sentence_words = len(sentence.split())
                     
-                    if current_words + sentence_words > self.target_chunk_size and current_words > 0:
+                    # Check if this sentence starts a new topic (look for topic indicators)
+                    is_new_topic = self._is_topic_starter(sentence)
+                    
+                    if (current_words + sentence_words > self.target_chunk_size and current_words > 0) or is_new_topic:
                         if current_para.strip():
                             final_paragraphs.append(current_para.strip())
                         current_para = sentence
@@ -243,6 +251,35 @@ class ContentChunker:
                 final_paragraphs.append(para)
         
         return final_paragraphs
+    
+    def _is_topic_starter(self, sentence: str) -> bool:
+        """Check if a sentence starts a new topic."""
+        sentence_lower = sentence.lower().strip()
+        
+        # Topic starter patterns
+        topic_starters = [
+            r'^(another|other|additionally|furthermore|moreover)',
+            r'^(in addition|besides|also)',
+            r'^(however|but|on the other hand)',
+            r'^(for example|for instance|such as)',
+            r'^(specifically|particularly|especially)',
+            r'^(meanwhile|at the same time)',
+            r'^(finally|lastly|in conclusion)',
+            r'^(it is important|note that|remember)',
+            r'^(studies show|research indicates)',
+            r'^(according to|based on)',
+            r'^(when|if|while|during)',
+            r'^(the next|another important)',
+            r'^(some|many|most|all) people',
+            r'^(doctors|physicians|healthcare providers)',
+            r'^(patients|individuals|people) with',
+        ]
+        
+        for pattern in topic_starters:
+            if re.match(pattern, sentence_lower):
+                return True
+        
+        return False
     
     def _create_chunk(self, content: str, chunk_index: int, 
                      page_number: int, pdf_document_id: str) -> ContentChunk:
