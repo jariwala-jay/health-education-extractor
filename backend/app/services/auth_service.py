@@ -1,11 +1,14 @@
 """Authentication service."""
 
+import logging
 from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from app.config import settings
 from app.models.auth import User, UserInDB, TokenData
+
+logger = logging.getLogger(__name__)
 
 # Password hashing context
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
