@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiClient } from "@/lib/api";
 import { 
-  EyeIcon, 
   PencilIcon, 
   CheckCircleIcon, 
   XCircleIcon,
@@ -45,7 +44,6 @@ export default function TipsPage() {
   const { user } = useAuth();
   const [tips, setTips] = useState<DailyTip[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [perPage] = useState(10);
   const [totalPages, setTotalPages] = useState(0);
@@ -55,7 +53,7 @@ export default function TipsPage() {
   const [tagFilter, setTagFilter] = useState<string>("");
   const [processingActions, setProcessingActions] = useState<Set<string>>(new Set());
 
-  const fetchTips = async () => {
+  const fetchTips = useCallback(async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams({
@@ -78,13 +76,13 @@ export default function TipsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, perPage, statusFilter, tagFilter]);
 
   useEffect(() => {
     if (user) {
       fetchTips();
     }
-  }, [user, page, statusFilter, tagFilter]);
+  }, [user, fetchTips]);
 
   const updateTipStatus = async (tipId: string, status: string, notes?: string) => {
     if (processingActions.has(tipId)) return;
@@ -99,7 +97,7 @@ export default function TipsPage() {
       // Update local state
       setTips(tips.map(tip => 
         tip.id === tipId 
-          ? { ...tip, processing_status: status as any, reviewer_notes: notes }
+          ? { ...tip, processing_status: status as "draft" | "reviewed" | "approved" | "uploaded" | "rejected", reviewer_notes: notes }
           : tip
       ));
       
@@ -116,22 +114,6 @@ export default function TipsPage() {
     }
   };
 
-  const deleteTip = async (tipId: string) => {
-    if (!confirm("Are you sure you want to delete this tip?")) return;
-    
-    try {
-      await apiClient.delete(`/api/v1/tips/${tipId}`);
-      
-      // Update local state
-      setTips(tips.filter(tip => tip.id !== tipId));
-      setTotal(total - 1);
-      
-      toast.success("Tip deleted successfully");
-    } catch (err) {
-      console.error("Error deleting tip:", err);
-      toast.error("Failed to delete tip");
-    }
-  };
 
   const getStatusColor = (status: string) => {
     switch (status) {

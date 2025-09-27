@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiClient } from "@/lib/api";
@@ -47,9 +47,9 @@ export default function EditTipPage() {
     if (user && tipId) {
       fetchTip();
     }
-  }, [user, tipId]);
+  }, [user, tipId, fetchTip]);
 
-  const fetchTip = async () => {
+  const fetchTip = useCallback(async () => {
     try {
       setLoading(true);
       const response = await apiClient.get(`/api/v1/tips/${tipId}`);
@@ -69,7 +69,7 @@ export default function EditTipPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [tipId]);
 
   const handleSave = async () => {
     try {
@@ -135,7 +135,7 @@ export default function EditTipPage() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Tip Not Found</h1>
-          <p className="text-gray-600">The tip you're looking for doesn't exist.</p>
+          <p className="text-gray-600">The tip you&apos;re looking for doesn&apos;t exist.</p>
         </div>
       </div>
     );

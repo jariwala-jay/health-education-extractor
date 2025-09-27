@@ -5,13 +5,11 @@ import { useDropzone } from 'react-dropzone';
 import { CloudArrowUpIcon, DocumentIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { uploadPDF, getPDFStatus, type PDFDocument } from '@/lib/api';
 import toast from 'react-hot-toast';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 export default function UploadPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<PDFDocument[]>([]);
-  const router = useRouter();
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const pdfFiles = acceptedFiles.filter(file => file.type === 'application/pdf');
