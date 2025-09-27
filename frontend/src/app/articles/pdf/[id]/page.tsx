@@ -11,7 +11,6 @@ import {
   CheckIcon,
   XMarkIcon,
   DocumentTextIcon,
-  ArrowDownTrayIcon,
 } from "@heroicons/react/24/outline";
 import {
   getArticlesByPdf,

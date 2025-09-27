@@ -71,7 +71,6 @@ export default function TipsPage() {
       setTotal(data.total);
       setTotalPages(data.total_pages);
     } catch (err) {
-      setError("Failed to fetch tips");
       console.error("Error fetching tips:", err);
     } finally {
       setLoading(false);

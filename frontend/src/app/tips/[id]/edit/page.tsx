@@ -43,12 +43,6 @@ export default function EditTipPage() {
 
   const [newTag, setNewTag] = useState("");
 
-  useEffect(() => {
-    if (user && tipId) {
-      fetchTip();
-    }
-  }, [user, tipId, fetchTip]);
-
   const fetchTip = useCallback(async () => {
     try {
       setLoading(true);
@@ -70,6 +64,12 @@ export default function EditTipPage() {
       setLoading(false);
     }
   }, [tipId]);
+
+  useEffect(() => {
+    if (user && tipId) {
+      fetchTip();
+    }
+  }, [user, tipId, fetchTip]);
 
   const handleSave = async () => {
     try {
