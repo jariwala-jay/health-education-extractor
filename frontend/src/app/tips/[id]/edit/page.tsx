@@ -185,7 +185,7 @@ export default function EditTipPage() {
                   placeholder="Enter the tip text..."
                 />
                 <p className="mt-1 text-sm text-gray-500">
-                  {formData.tip_text.length}/200 characters
+                  {formData.tip_text.length} / 200 characters
                 </p>
               </div>
 
@@ -350,6 +350,5 @@ export default function EditTipPage() {
           </div>
         </div>
       </div>
-    </div>
   );
 }
