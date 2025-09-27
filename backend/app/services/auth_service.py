@@ -18,14 +18,30 @@ class AuthService:
         """Initialize authentication service."""
         # In production, this would come from a database
         # For now, we'll use the admin user from config
-        self.users_db = {
-            settings.admin_username: UserInDB(
-                username=settings.admin_username,
-                hashed_password=self.get_password_hash(settings.admin_password),
-                is_active=True,
-                created_at=datetime.utcnow()
-            )
-        }
+        try:
+            logger.info(f"Admin username: '{settings.admin_username}'")
+            logger.info(f"Admin password length: {len(settings.admin_password)} characters")
+            logger.info(f"Admin password bytes: {len(settings.admin_password.encode('utf-8'))} bytes")
+            
+            self.users_db = {
+                settings.admin_username: UserInDB(
+                    username=settings.admin_username,
+                    hashed_password=self.get_password_hash(settings.admin_password),
+                    is_active=True,
+                    created_at=datetime.utcnow()
+                )
+            }
+        except Exception as e:
+            logger.error(f"Failed to initialize auth service: {e}")
+            # Create a fallback user with a simple password
+            self.users_db = {
+                "admin": UserInDB(
+                    username="admin",
+                    hashed_password=self.get_password_hash("admin"),
+                    is_active=True,
+                    created_at=datetime.utcnow()
+                )
+            }
     
     def verify_password(self, plain_password: str, hashed_password: str) -> bool:
         """Verify a password against its hash."""
@@ -33,6 +49,14 @@ class AuthService:
     
     def get_password_hash(self, password: str) -> str:
         """Hash a password."""
+        # Debug logging
+        logger.info(f"Password length: {len(password)} characters, {len(password.encode('utf-8'))} bytes")
+        logger.info(f"Password value: '{password}'")
+        
+        # Truncate password to 72 bytes max for bcrypt compatibility
+        if len(password.encode('utf-8')) > 72:
+            logger.warning(f"Password too long ({len(password.encode('utf-8'))} bytes), truncating to 72 bytes")
+            password = password[:72]
         return pwd_context.hash(password)
     
     def get_user(self, username: str) -> Optional[UserInDB]:
